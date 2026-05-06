@@ -77,6 +77,16 @@ struct MapWorkspaceView: View {
                         .padding(.trailing, 16)
                     }
                 }
+                .overlay(alignment: .topLeading) {
+                    if let progress = viewModel.routePlaybackProgress,
+                        progress.currentSpeedMetersPerSecond != nil
+                            || progress.averageSpeedMetersPerSecond != nil
+                    {
+                        MapWorkspaceRouteSpeedOverlay(progress: progress)
+                            .padding(.top, 76)
+                            .padding(.leading, 16)
+                    }
+                }
 
                 MapWorkspaceSearchOverlayView(
                     searchModel: searchModel,

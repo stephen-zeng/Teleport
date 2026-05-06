@@ -88,8 +88,15 @@ extension AppViewModel {
             routePlaybackState = .playing(initialProgress)
 
             routePlaybackTask?.cancel()
+            routePlaybackGeneration += 1
+            let generation = routePlaybackGeneration
             routePlaybackTask = Task {
-                await runRoutePlayback(route: route, initialProgress: initialProgress, target: target)
+                await runRoutePlayback(
+                    route: route,
+                    initialProgress: initialProgress,
+                    target: target,
+                    generation: generation
+                )
             }
         } catch {
             handleRoutePlaybackError(error)
@@ -104,6 +111,7 @@ extension AppViewModel {
         routePlaybackState = .paused(progress)
         routePlaybackTask?.cancel()
         routePlaybackTask = nil
+        routePlaybackGeneration += 1
 
         if let routeName = loadedRoute?.name {
             statusMessage = .localized(TeleportStrings.pausedRoute(routeName))
@@ -113,6 +121,7 @@ extension AppViewModel {
     func stopRoutePlayback(resetToReadyState: Bool = true) {
         routePlaybackTask?.cancel()
         routePlaybackTask = nil
+        routePlaybackGeneration += 1
 
         guard loadedRoute != nil else {
             routePlaybackState = .idle
@@ -136,8 +145,37 @@ extension AppViewModel {
     private struct PlaybackInterpolationStep {
         let coordinate: LocationCoordinate
         let delaySeconds: TimeInterval
+        let stepDistanceMeters: Double
         let traveledDistanceMeters: Double
         let progressWaypointIndex: Int
+    }
+
+    private struct RoutePlaybackSegmentTiming {
+        let startIndex: Int
+        let endIndex: Int
+        let delaySeconds: TimeInterval
+    }
+
+    private struct RoutePlaybackPacingSnapshot: Equatable {
+        let timingMode: RoutePlaybackTimingMode
+        let speedMultiplier: Double
+        let fixedIntervalSeconds: Double
+        let travelSpeedMetersPerSecond: Double
+        let speedVariationFraction: Double
+    }
+
+    private var routePlaybackTaskDelayBeforeRestartSeconds: UInt64 {
+        10_000_000
+    }
+
+    private var routePlaybackPacingSnapshot: RoutePlaybackPacingSnapshot {
+        RoutePlaybackPacingSnapshot(
+            timingMode: routePlaybackTimingMode,
+            speedMultiplier: routePlaybackSpeedMultiplier,
+            fixedIntervalSeconds: routePlaybackFixedIntervalSeconds,
+            travelSpeedMetersPerSecond: routePlaybackTravelSpeedMetersPerSecond,
+            speedVariationFraction: routePlaybackSpeedVariationFraction
+        )
     }
 
     private func handleRoutePlaybackError(_ error: Error) {
@@ -200,20 +238,25 @@ extension AppViewModel {
     private func runRoutePlayback(
         route: SimulatedRoute,
         initialProgress: RoutePlaybackProgress,
-        target: SimulationPlaybackTarget
+        target: SimulationPlaybackTarget,
+        generation: Int
     ) async {
         TeleportLog.simulation.info(
             "Starting route playback for \(route.name, privacy: .public) on \(target.device.logLabel, privacy: .public)"
         )
 
         defer {
-            routePlaybackTask = nil
+            if routePlaybackGeneration == generation {
+                routePlaybackTask = nil
+            }
         }
 
         do {
             var currentProgress = initialProgress
             let waypoints = route.waypoints
             let totalRouteDistanceMeters = route.totalDistanceMeters
+            var elapsedPlaybackSeconds = currentProgress.elapsedPlaybackSeconds
+            let playbackStartTraveledDistanceMeters = currentProgress.playbackStartTraveledDistanceMeters
 
             if currentProgress.waypointIndex == 0 || currentProgress.currentCoordinate == nil {
                 let startCoordinate = ChinaCoordinateTransform.displayCoordinate(for: waypoints[0].coordinate)
@@ -228,26 +271,27 @@ extension AppViewModel {
                 return
             }
 
-            for nextIndex in (currentProgress.waypointIndex + 1)..<waypoints.count {
-                let previousIndex = nextIndex - 1
-                let segmentDelay = routeSegmentDelay(
-                    from: waypoints[previousIndex],
-                    to: waypoints[nextIndex]
-                )
+            let segmentTimings = routePlaybackSegmentTimings(
+                for: route,
+                startingAfter: currentProgress.waypointIndex,
+                pacing: routePlaybackPacingSnapshot
+            )
 
+            for segmentTiming in segmentTimings {
                 let smoothedSteps = smoothedPlaybackSteps(
-                    from: waypoints[previousIndex],
-                    to: waypoints[nextIndex],
-                    totalDelaySeconds: segmentDelay,
+                    from: waypoints[segmentTiming.startIndex],
+                    to: waypoints[segmentTiming.endIndex],
+                    totalDelaySeconds: segmentTiming.delaySeconds,
                     traveledDistanceBeforeSegment: currentProgress.traveledDistanceMeters,
                     totalRouteDistanceMeters: totalRouteDistanceMeters,
-                    nextWaypointIndex: nextIndex,
+                    nextWaypointIndex: segmentTiming.endIndex,
                     route: route
                 )
 
                 for step in smoothedSteps {
                     if step.delaySeconds > 0 {
                         try await Task.sleep(nanoseconds: UInt64(step.delaySeconds * 1_000_000_000))
+                        elapsedPlaybackSeconds += step.delaySeconds
                     }
 
                     try Task.checkCancellation()
@@ -267,7 +311,11 @@ extension AppViewModel {
                         waypointIndex: step.progressWaypointIndex,
                         displayedCoordinate: displayedCoordinate,
                         traveledDistanceMeters: step.traveledDistanceMeters,
-                        totalDistanceMeters: totalRouteDistanceMeters
+                        totalDistanceMeters: totalRouteDistanceMeters,
+                        playbackStartTraveledDistanceMeters: playbackStartTraveledDistanceMeters,
+                        elapsedPlaybackSeconds: elapsedPlaybackSeconds,
+                        currentSpeedMetersPerSecond: step.delaySeconds > 0
+                            ? step.stepDistanceMeters / step.delaySeconds : nil
                     )
                     routePlaybackState = .playing(currentProgress)
                 }
@@ -275,7 +323,7 @@ extension AppViewModel {
                 statusMessage = .localized(
                     TeleportStrings.playingRoute(
                         route.name,
-                        pointNumber: nextIndex + 1,
+                        pointNumber: segmentTiming.endIndex + 1,
                         totalPoints: waypoints.count
                     )
                 )
@@ -295,6 +343,189 @@ extension AppViewModel {
 
     private func routeSegmentDelay(from start: RouteWaypoint, to end: RouteWaypoint) -> TimeInterval {
         playbackSegmentDelay(from: start, to: end)
+    }
+
+    func restartActiveRoutePlaybackAfterPacingChange() {
+        guard case .playing(let progress) = routePlaybackState,
+            let route = loadedRoute,
+            progress.routeID == route.id,
+            let targetTask = routePlaybackTask
+        else {
+            return
+        }
+
+        targetTask.cancel()
+        routePlaybackTask = nil
+        routePlaybackGeneration += 1
+        let generation = routePlaybackGeneration
+        routePlaybackState = .playing(progress)
+        routePlaybackTask = Task {
+            do {
+                try await Task.sleep(nanoseconds: routePlaybackTaskDelayBeforeRestartSeconds)
+                let target = try await resolvedSimulationTargetForPlayback()
+                await runRoutePlayback(
+                    route: route,
+                    initialProgress: progress,
+                    target: target,
+                    generation: generation
+                )
+            } catch is CancellationError {
+            } catch {
+                handleRoutePlaybackError(error)
+            }
+        }
+    }
+
+    private func routePlaybackSegmentTimings(
+        for route: SimulatedRoute,
+        startingAfter waypointIndex: Int,
+        pacing: RoutePlaybackPacingSnapshot
+    ) -> [RoutePlaybackSegmentTiming] {
+        let waypoints = route.waypoints
+        guard waypoints.count > 1, waypointIndex < waypoints.count - 1 else {
+            return []
+        }
+
+        let segmentIndexes = (waypointIndex + 1)..<waypoints.count
+        let distances = segmentIndexes.map { nextIndex in
+            waypoints[nextIndex - 1].coordinate.distance(to: waypoints[nextIndex].coordinate)
+        }
+
+        let delays: [TimeInterval]
+        switch pacing.timingMode {
+        case .fixedSpeed:
+            delays = variedFixedSpeedDelays(
+                distances: distances,
+                averageSpeedMetersPerSecond: pacing.travelSpeedMetersPerSecond,
+                variationFraction: pacing.speedVariationFraction,
+                routeID: route.id,
+                startingAfter: waypointIndex
+            )
+        case .recorded, .fixedInterval:
+            delays = segmentIndexes.map { nextIndex in
+                routeSegmentDelay(
+                    from: waypoints[nextIndex - 1],
+                    to: waypoints[nextIndex],
+                    pacing: pacing
+                )
+            }
+        }
+
+        return zip(segmentIndexes, delays).map { nextIndex, delay in
+            RoutePlaybackSegmentTiming(startIndex: nextIndex - 1, endIndex: nextIndex, delaySeconds: delay)
+        }
+    }
+
+    private func routeSegmentDelay(
+        from start: RouteWaypoint,
+        to end: RouteWaypoint,
+        pacing: RoutePlaybackPacingSnapshot
+    ) -> TimeInterval {
+        switch pacing.timingMode {
+        case .fixedInterval:
+            return pacing.fixedIntervalSeconds
+        case .recorded:
+            if let startTimestamp = start.timestamp,
+                let endTimestamp = end.timestamp
+            {
+                let timestampDelay = endTimestamp.timeIntervalSince(startTimestamp)
+                if timestampDelay > 0 {
+                    return min(timestampDelay / pacing.speedMultiplier, maximumRouteSegmentDelaySeconds)
+                }
+            }
+
+            if let expectedTravelTime = end.expectedTravelTime,
+                expectedTravelTime > 0
+            {
+                return min(expectedTravelTime / pacing.speedMultiplier, maximumRouteSegmentDelaySeconds)
+            }
+
+            return movementTickIntervalSeconds
+        case .fixedSpeed:
+            let distanceMeters = start.coordinate.distance(to: end.coordinate)
+            guard distanceMeters > 0, pacing.travelSpeedMetersPerSecond > 0 else {
+                return 0
+            }
+
+            return distanceMeters / pacing.travelSpeedMetersPerSecond
+        }
+    }
+
+    private func variedFixedSpeedDelays(
+        distances: [Double],
+        averageSpeedMetersPerSecond: Double,
+        variationFraction: Double,
+        routeID: UUID,
+        startingAfter waypointIndex: Int
+    ) -> [TimeInterval] {
+        guard averageSpeedMetersPerSecond > 0 else {
+            return distances.map { _ in 0 }
+        }
+
+        let positiveDistance = distances.reduce(0) { $0 + max($1, 0) }
+        guard positiveDistance > 0 else {
+            return distances.map { _ in 0 }
+        }
+
+        let targetDuration = positiveDistance / averageSpeedMetersPerSecond
+        let variation = min(max(variationFraction, 0), routePlaybackSpeedVariationRange.upperBound)
+        let speeds = variedRouteSpeeds(
+            segmentCount: distances.count,
+            averageSpeedMetersPerSecond: averageSpeedMetersPerSecond,
+            variationFraction: variation,
+            seed: routePlaybackVariationSeed(routeID: routeID, startingAfter: waypointIndex)
+        )
+        let rawDurations = zip(distances, speeds).map { distance, speed in
+            guard distance > 0, speed > 0 else {
+                return 0.0
+            }
+
+            return distance / speed
+        }
+        let rawDuration = rawDurations.reduce(0, +)
+        guard rawDuration > 0 else {
+            return distances.map { _ in 0 }
+        }
+
+        let durationScale = targetDuration / rawDuration
+        return rawDurations.map { $0 * durationScale }
+    }
+
+    private func variedRouteSpeeds(
+        segmentCount: Int,
+        averageSpeedMetersPerSecond: Double,
+        variationFraction: Double,
+        seed: UInt64
+    ) -> [Double] {
+        guard segmentCount > 0 else {
+            return []
+        }
+
+        guard variationFraction > 0 else {
+            return Array(repeating: averageSpeedMetersPerSecond, count: segmentCount)
+        }
+
+        var generator = SeededRandomNumberGenerator(seed: seed)
+        var deviation = 0.0
+        let meanReversion = 0.28
+        let noiseScale = averageSpeedMetersPerSecond * variationFraction * 0.45
+        let maxDeviation = averageSpeedMetersPerSecond * variationFraction
+        let minimumSpeed = max(averageSpeedMetersPerSecond * 0.20, 0.1)
+
+        return (0..<segmentCount).map { _ in
+            deviation += -meanReversion * deviation + generator.nextGaussian() * noiseScale
+            deviation = min(max(deviation, -maxDeviation), maxDeviation)
+            return max(minimumSpeed, averageSpeedMetersPerSecond + deviation)
+        }
+    }
+
+    private func routePlaybackVariationSeed(routeID: UUID, startingAfter waypointIndex: Int) -> UInt64 {
+        var hasher = Hasher()
+        hasher.combine(routeID)
+        hasher.combine(waypointIndex)
+        hasher.combine(Int((routePlaybackTravelSpeedMetersPerSecond * 100).rounded()))
+        hasher.combine(Int((routePlaybackSpeedVariationFraction * 100).rounded()))
+        return UInt64(bitPattern: Int64(hasher.finalize()))
     }
 
     private func makeRoutePlaybackProgress(for route: SimulatedRoute, waypointIndex: Int) -> RoutePlaybackProgress {
@@ -333,15 +564,27 @@ extension AppViewModel {
         waypointIndex: Int,
         displayedCoordinate: LocationCoordinate,
         traveledDistanceMeters: Double,
-        totalDistanceMeters: Double
+        totalDistanceMeters: Double,
+        playbackStartTraveledDistanceMeters: Double,
+        elapsedPlaybackSeconds: TimeInterval,
+        currentSpeedMetersPerSecond: Double?
     ) -> RoutePlaybackProgress {
-        RoutePlaybackProgress(
+        let sessionDistanceMeters = max(0, traveledDistanceMeters - playbackStartTraveledDistanceMeters)
+        let averageSpeedMetersPerSecond =
+            elapsedPlaybackSeconds > 0
+            ? sessionDistanceMeters / elapsedPlaybackSeconds : nil
+
+        return RoutePlaybackProgress(
             routeID: route.id,
             waypointIndex: waypointIndex,
             waypointCount: route.waypoints.count,
             currentCoordinate: displayedCoordinate,
             traveledDistanceMeters: traveledDistanceMeters,
-            totalDistanceMeters: totalDistanceMeters
+            totalDistanceMeters: totalDistanceMeters,
+            playbackStartTraveledDistanceMeters: playbackStartTraveledDistanceMeters,
+            elapsedPlaybackSeconds: elapsedPlaybackSeconds,
+            currentSpeedMetersPerSecond: currentSpeedMetersPerSecond,
+            averageSpeedMetersPerSecond: averageSpeedMetersPerSecond
         )
     }
 
@@ -378,9 +621,36 @@ extension AppViewModel {
             return PlaybackInterpolationStep(
                 coordinate: coordinate,
                 delaySeconds: perStepDelay,
+                stepDistanceMeters: segmentDistanceMeters / Double(stepCount),
                 traveledDistanceMeters: traveledDistanceMeters,
                 progressWaypointIndex: progressWaypointIndex
             )
         }
+    }
+}
+
+fileprivate struct SeededRandomNumberGenerator: RandomNumberGenerator {
+    private var state: UInt64
+
+    init(seed: UInt64) {
+        self.state = seed == 0 ? 0x9E37_79B9_7F4A_7C15 : seed
+    }
+
+    mutating func next() -> UInt64 {
+        state &+= 0x9E37_79B9_7F4A_7C15
+        var value = state
+        value = (value ^ (value >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        value = (value ^ (value >> 27)) &* 0x94D0_49BB_1331_11EB
+        return value ^ (value >> 31)
+    }
+
+    mutating func nextUnitDouble() -> Double {
+        Double(next() >> 11) / Double(1 << 53)
+    }
+
+    mutating func nextGaussian() -> Double {
+        let first = max(nextUnitDouble(), Double.leastNonzeroMagnitude)
+        let second = nextUnitDouble()
+        return sqrt(-2 * log(first)) * cos(2 * Double.pi * second)
     }
 }

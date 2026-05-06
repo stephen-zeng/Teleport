@@ -135,6 +135,10 @@ struct RoutePlaybackProgress: Equatable, Sendable {
     var currentCoordinate: LocationCoordinate?
     var traveledDistanceMeters: Double
     var totalDistanceMeters: Double
+    var playbackStartTraveledDistanceMeters: Double = 0
+    var elapsedPlaybackSeconds: TimeInterval = 0
+    var currentSpeedMetersPerSecond: Double?
+    var averageSpeedMetersPerSecond: Double?
 
     var fractionCompleted: Double {
         if totalDistanceMeters > 0 {

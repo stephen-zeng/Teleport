@@ -264,6 +264,34 @@ struct LoadedRouteDetailsView: View {
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
+
+                LabeledContent {
+                    Text(String(format: "%.0f%%", viewModel.routePlaybackSpeedVariationFraction * 100))
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                } label: {
+                    Text(TeleportStrings.routeSpeedVariationLabel)
+                        .font(.caption.weight(.medium))
+                }
+
+                Slider(
+                    value: $viewModel.routePlaybackSpeedVariationFraction,
+                    in: viewModel.routePlaybackSpeedVariationRange,
+                    step: 0.05
+                )
+
+                HStack {
+                    Text("0%")
+                    Spacer(minLength: 12)
+                    Text("80%")
+                }
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+
+                Text(TeleportStrings.routePacingHintSpeedVariation)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(12)

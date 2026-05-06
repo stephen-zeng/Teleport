@@ -352,3 +352,52 @@ struct MapWorkspaceCurrentLocationButton: View {
         .accessibilityLabel(Text(TeleportStrings.currentLocation))
     }
 }
+
+struct MapWorkspaceRouteSpeedOverlay: View {
+    let progress: RoutePlaybackProgress
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            speedRow(
+                title: TeleportStrings.routeCurrentSpeedLabel,
+                value: progress.currentSpeedMetersPerSecond
+            )
+
+            speedRow(
+                title: TeleportStrings.routeAverageSpeedLabel,
+                value: progress.averageSpeedMetersPerSecond
+            )
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(width: 190)
+        .background(MapWorkspaceOverlayCardBackground(shadowOpacity: 0.14, shadowRadius: 12, shadowYOffset: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.06))
+        )
+        .accessibilityElement(children: .combine)
+    }
+
+    private func speedRow(title: LocalizedStringResource, value: Double?) -> some View {
+        HStack(spacing: 10) {
+            Text(title)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+
+            Spacer(minLength: 16)
+
+            Text(formattedSpeed(value))
+                .font(.caption.monospacedDigit().weight(.semibold))
+                .foregroundStyle(.primary)
+        }
+    }
+
+    private func formattedSpeed(_ value: Double?) -> String {
+        guard let value else {
+            return "-- m/s"
+        }
+
+        return String(format: "%.1f m/s", value)
+    }
+}

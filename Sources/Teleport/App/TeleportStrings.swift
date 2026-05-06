@@ -87,6 +87,8 @@ enum TeleportStrings {
     static let routePlaybackReplay: LocalizedStringResource = "Replay"
     static let routePlaybackProgressLabel: LocalizedStringResource = "Progress"
     static let routePlaybackCurrentPointLabel: LocalizedStringResource = "Current Point"
+    static let routeCurrentSpeedLabel: LocalizedStringResource = "Current Speed"
+    static let routeAverageSpeedLabel: LocalizedStringResource = "Average Speed"
     static let routeRecordedTimeLabel: LocalizedStringResource = "Recorded Time"
     static let routeTotalTimeLabel: LocalizedStringResource = "Replay Time"
     static let routeTimingModeLabel: LocalizedStringResource = "Timing"
@@ -96,12 +98,15 @@ enum TeleportStrings {
     static let routeReplaySpeedLabel: LocalizedStringResource = "Replay Speed"
     static let routeFixedIntervalLabel: LocalizedStringResource = "Fixed Interval"
     static let routeTravelSpeedLabel: LocalizedStringResource = "Travel Speed"
+    static let routeSpeedVariationLabel: LocalizedStringResource = "Speed Variation"
     static let routePacingHintRecorded: LocalizedStringResource =
         "Use GPX timing when present, but compress long pauses for practical replay."
     static let routePacingHintFixed: LocalizedStringResource =
         "Advance every waypoint on a fixed clock regardless of GPX timestamps."
     static let routePacingHintSpeed: LocalizedStringResource =
         "Convert segment distance into delay using a target speed. Best for planned routes with no timing data."
+    static let routePacingHintSpeedVariation: LocalizedStringResource =
+        "Adds mean-reverting random speed changes while preserving the configured average speed across the remaining route."
     static let routePreviewStart: LocalizedStringResource = "Route Start"
     static let routePreviewEnd: LocalizedStringResource = "Route End"
     static let movementSectionTitle: LocalizedStringResource = "Movement"

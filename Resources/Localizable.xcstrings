@@ -67,6 +67,9 @@
         }
       }
     },
+    "0%" : {
+
+    },
     "1x" : {
       "localizations" : {
         "zh-Hans" : {
@@ -96,6 +99,9 @@
           }
         }
       }
+    },
+    "80%" : {
+
     },
     "Actions" : {
       "localizations" : {
@@ -142,6 +148,9 @@
           }
         }
       }
+    },
+    "Adds mean-reverting random speed changes while preserving the configured average speed across the remaining route." : {
+
     },
     "Administrator approval is required for physical-device simulation." : {
       "localizations" : {
@@ -222,6 +231,9 @@
           }
         }
       }
+    },
+    "Average Speed" : {
+
     },
     "Before simulating location on a physical iPhone, confirm the device and host are ready." : {
       "localizations" : {
@@ -532,6 +544,9 @@
           }
         }
       }
+    },
+    "Current Speed" : {
+
     },
     "Cycling" : {
       "localizations" : {
@@ -1003,6 +1018,9 @@
         }
       }
     },
+    "Install pymobiledevice3 for the same Python interpreter used by the device helper. The command below is meant to run as your normal macOS user." : {
+
+    },
     "Install pymobiledevice3 for the selected Python interpreter to continue physical-device location simulation." : {
       "localizations" : {
         "zh-Hans" : {
@@ -1014,6 +1032,7 @@
       }
     },
     "Install pymobiledevice3 into the same Python interpreter used by the device helper." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1326,6 +1345,7 @@
       }
     },
     "Physical-device simulation needs pymobiledevice3 in the exact Python interpreter selected for the helper." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1334,6 +1354,9 @@
           }
         }
       }
+    },
+    "Physical-device simulation needs pymobiledevice3 in the exact Python interpreter selected for the helper. Install it as your normal macOS user so Teleport can reuse that package path after administrator approval." : {
+
     },
     "Play" : {
       "localizations" : {
@@ -1651,7 +1674,11 @@
         }
       }
     },
+    "Run the command in Terminal as your normal macOS user, then return here and retry the physical-device location action." : {
+
+    },
     "Run the command in Terminal, then return here and retry the physical-device location action." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1661,7 +1688,11 @@
         }
       }
     },
+    "Run the install command in Terminal as your normal macOS user if needed, then continue. You can copy the command directly from this sheet." : {
+
+    },
     "Run the install command in Terminal if needed, then continue. You can copy the command directly from this sheet." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1946,6 +1977,9 @@
           }
         }
       }
+    },
+    "Speed Variation" : {
+
     },
     "Start simulation on the physical device before using the movement wheel." : {
       "localizations" : {
