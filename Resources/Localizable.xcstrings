@@ -485,7 +485,6 @@
       }
     },
     "Convert segment distance into delay using a target speed. Best for planned routes with no timing data." : {
-      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1981,6 +1980,9 @@
           }
         }
       }
+    },
+    "Runing" : {
+
     },
     "Save" : {
       "localizations" : {

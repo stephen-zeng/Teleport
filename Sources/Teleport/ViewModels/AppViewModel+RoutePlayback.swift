@@ -160,6 +160,7 @@ extension AppViewModel {
         let timingMode: RoutePlaybackTimingMode
         let speedMultiplier: Double
         let fixedIntervalSeconds: Double
+        let travelSpeedMetersPerSecond: Double
         let runTotalTimeSeconds: Double
         let runPaceStrategy: RoutePlaybackRunPaceStrategy
         let runFatigueFraction: Double
@@ -179,6 +180,7 @@ extension AppViewModel {
             timingMode: routePlaybackTimingMode,
             speedMultiplier: routePlaybackSpeedMultiplier,
             fixedIntervalSeconds: routePlaybackFixedIntervalSeconds,
+            travelSpeedMetersPerSecond: routePlaybackTravelSpeedMetersPerSecond,
             runTotalTimeSeconds: routePlaybackRunTotalTimeSeconds,
             runPaceStrategy: routePlaybackRunPaceStrategy,
             runFatigueFraction: routePlaybackRunFatigueFraction
@@ -400,7 +402,7 @@ extension AppViewModel {
 
         let delays: [TimeInterval]
         switch pacing.timingMode {
-        case .fixedSpeed:
+        case .running:
             delays = simulatedRunPaceDelays(
                 distances: distances,
                 totalTimeSeconds: pacing.runTotalTimeSeconds,
@@ -409,7 +411,7 @@ extension AppViewModel {
                 routeID: route.id,
                 startingAfter: waypointIndex
             )
-        case .recorded, .fixedInterval:
+        case .recorded, .fixedInterval, .fixedSpeed:
             delays = segmentIndexes.map { nextIndex in
                 routeSegmentDelay(
                     from: waypoints[nextIndex - 1],
@@ -450,6 +452,13 @@ extension AppViewModel {
 
             return movementTickIntervalSeconds
         case .fixedSpeed:
+            let distanceMeters = start.coordinate.distance(to: end.coordinate)
+            guard distanceMeters > 0, pacing.travelSpeedMetersPerSecond > 0 else {
+                return 0
+            }
+
+            return distanceMeters / pacing.travelSpeedMetersPerSecond
+        case .running:
             let distanceMeters = start.coordinate.distance(to: end.coordinate)
             guard distanceMeters > 0, let route = loadedRoute, route.totalDistanceMeters > 0 else {
                 return 0

@@ -10,6 +10,7 @@ enum RoutePlaybackTimingMode: String, CaseIterable, Codable, Sendable {
     case recorded
     case fixedInterval
     case fixedSpeed
+    case running
 }
 
 enum RoutePlaybackRunPaceStrategy: String, CaseIterable, Sendable {
