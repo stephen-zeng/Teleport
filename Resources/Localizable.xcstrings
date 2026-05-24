@@ -90,6 +90,15 @@
         }
       }
     },
+    "2h" : {
+
+    },
+    "5m" : {
+
+    },
+    "15%" : {
+
+    },
     "32x" : {
       "localizations" : {
         "zh-Hans" : {
@@ -99,9 +108,6 @@
           }
         }
       }
-    },
-    "80%" : {
-
     },
     "Actions" : {
       "localizations" : {
@@ -211,6 +217,9 @@
           }
         }
       }
+    },
+    "Applies late-run slowdown from 0% to 15%, then normalizes the generated pace curve so total distance closes exactly." : {
+
     },
     "Authorize" : {
       "localizations" : {
@@ -466,6 +475,7 @@
       }
     },
     "Convert segment distance into delay using a target speed. Best for planned routes with no timing data." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -808,6 +818,9 @@
         }
       }
     },
+    "Even" : {
+
+    },
     "Export GPX" : {
       "localizations" : {
         "zh-Hans" : {
@@ -897,6 +910,9 @@
           }
         }
       }
+    },
+    "Fatigue" : {
+
     },
     "Finding a navigation route between the selected stops." : {
       "localizations" : {
@@ -1224,6 +1240,9 @@
         }
       }
     },
+    "Negative" : {
+
+    },
     "No device selected" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1273,6 +1292,9 @@
           }
         }
       }
+    },
+    "Pace Strategy" : {
+
     },
     "Path Style" : {
       "localizations" : {
@@ -1413,6 +1435,9 @@
           }
         }
       }
+    },
+    "Positive" : {
+
     },
     "Progress" : {
       "localizations" : {
@@ -1908,6 +1933,9 @@
         }
       }
     },
+    "Simulate a running pace curve from total time, route distance, strategy, warmup, fatigue, and natural speed noise." : {
+
+    },
     "Simulated Location" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2210,6 +2238,9 @@
           }
         }
       }
+    },
+    "Total Time" : {
+
     },
     "Travel Mode" : {
       "localizations" : {

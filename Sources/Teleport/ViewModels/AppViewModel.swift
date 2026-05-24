@@ -30,12 +30,15 @@ final class AppViewModel {
     private static let routePlaybackSmoothingIntervalSeconds = 0.25
     private static let maximumRouteStepDistanceMeters = 25.0
     private static let defaultRoutePlaybackSpeedMultiplier = 8.0
-    private static let defaultRoutePlaybackSpeedVariationFraction = 0.20
     private static let routePlaybackSpeedMultipliers: [Double] = [1, 2, 4, 8, 16, 32]
     private static let routePlaybackFixedIntervalPresets: [Double] = [
         0.10, 0.15, 0.20, 0.25, 0.35, 0.50, 0.75, 1.00, 1.50, 2.00
     ]
-    private static let defaultRoutePlaybackTravelSpeedMetersPerSecond = 5.0
+    private static let defaultRoutePlaybackRunTotalTimeSeconds = 50 * 60.0
+    private static let defaultRoutePlaybackRunFatigueFraction = 0.06
+    private static let routePlaybackRunTotalTimePresets: [Double] = [
+        5 * 60, 10 * 60, 15 * 60, 20 * 60, 30 * 60, 45 * 60, 50 * 60, 60 * 60, 90 * 60, 120 * 60
+    ]
     private static let movementSpeedPresets: [Double] = [
         1.5, 2.0, 2.5, 3.5, 5.0, 7.0, 9.5, 13.0, 17.5, 23.5, 31.0, 40.0
     ]
@@ -82,10 +85,13 @@ final class AppViewModel {
     var routePlaybackTimingMode: RoutePlaybackTimingMode = .recorded
     var routePlaybackSpeedMultiplier: Double = 8.0
     var routePlaybackFixedIntervalSeconds: Double = 0.25
-    var routePlaybackTravelSpeedMetersPerSecond: Double = 5.0 {
+    var routePlaybackRunTotalTimeSeconds: Double = 50 * 60.0 {
         didSet { restartActiveRoutePlaybackAfterPacingChange() }
     }
-    var routePlaybackSpeedVariationFraction: Double = 0.20 {
+    var routePlaybackRunPaceStrategy: RoutePlaybackRunPaceStrategy = .even {
+        didSet { restartActiveRoutePlaybackAfterPacingChange() }
+    }
+    var routePlaybackRunFatigueFraction: Double = 0.06 {
         didSet { restartActiveRoutePlaybackAfterPacingChange() }
     }
 
@@ -102,8 +108,8 @@ final class AppViewModel {
         self.movementTickIntervalSeconds = Self.defaultMovementTickIntervalSeconds
         self.routePlaybackSpeedMultiplier = Self.defaultRoutePlaybackSpeedMultiplier
         self.routePlaybackFixedIntervalSeconds = Self.defaultMovementTickIntervalSeconds
-        self.routePlaybackTravelSpeedMetersPerSecond = Self.defaultRoutePlaybackTravelSpeedMetersPerSecond
-        self.routePlaybackSpeedVariationFraction = Self.defaultRoutePlaybackSpeedVariationFraction
+        self.routePlaybackRunTotalTimeSeconds = Self.defaultRoutePlaybackRunTotalTimeSeconds
+        self.routePlaybackRunFatigueFraction = Self.defaultRoutePlaybackRunFatigueFraction
         self.savedRoutes = Self.loadSavedRoutes(from: defaults)
     }
 
@@ -342,30 +348,30 @@ final class AppViewModel {
         routePlaybackFixedIntervalSeconds = Self.routePlaybackFixedIntervalPresets[clampedIndex]
     }
 
-    var routePlaybackTravelSpeedPresetValues: [Double] {
-        Self.movementSpeedPresets
+    var routePlaybackRunTotalTimePresetValues: [Double] {
+        Self.routePlaybackRunTotalTimePresets
     }
 
-    var routePlaybackTravelSpeedPresetRange: ClosedRange<Double> {
-        0...Double(Self.movementSpeedPresets.count - 1)
+    var routePlaybackRunTotalTimePresetRange: ClosedRange<Double> {
+        0...Double(Self.routePlaybackRunTotalTimePresets.count - 1)
     }
 
-    var currentRoutePlaybackTravelSpeedPresetIndex: Int {
-        let nearest = Self.movementSpeedPresets.enumerated().min { lhs, rhs in
-            abs(lhs.element - routePlaybackTravelSpeedMetersPerSecond)
-                < abs(rhs.element - routePlaybackTravelSpeedMetersPerSecond)
+    var currentRoutePlaybackRunTotalTimePresetIndex: Int {
+        let nearest = Self.routePlaybackRunTotalTimePresets.enumerated().min { lhs, rhs in
+            abs(lhs.element - routePlaybackRunTotalTimeSeconds)
+                < abs(rhs.element - routePlaybackRunTotalTimeSeconds)
         }
 
         return nearest?.offset ?? 0
     }
 
-    func setRoutePlaybackTravelSpeedPreset(index: Int) {
-        let clampedIndex = min(max(index, 0), Self.movementSpeedPresets.count - 1)
-        routePlaybackTravelSpeedMetersPerSecond = Self.movementSpeedPresets[clampedIndex]
+    func setRoutePlaybackRunTotalTimePreset(index: Int) {
+        let clampedIndex = min(max(index, 0), Self.routePlaybackRunTotalTimePresets.count - 1)
+        routePlaybackRunTotalTimeSeconds = Self.routePlaybackRunTotalTimePresets[clampedIndex]
     }
 
-    var routePlaybackSpeedVariationRange: ClosedRange<Double> {
-        0...0.80
+    var routePlaybackRunFatigueRange: ClosedRange<Double> {
+        0...0.15
     }
 
     var loadedRouteRecordedDurationSeconds: TimeInterval? {
@@ -452,7 +458,11 @@ final class AppViewModel {
                 return 0
             }
 
-            return distanceMeters / routePlaybackTravelSpeedMetersPerSecond
+            guard let route = loadedRoute, route.totalDistanceMeters > 0 else {
+                return 0
+            }
+
+            return routePlaybackRunTotalTimeSeconds * distanceMeters / route.totalDistanceMeters
         }
     }
 

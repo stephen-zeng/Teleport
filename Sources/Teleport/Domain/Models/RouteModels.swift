@@ -12,6 +12,23 @@ enum RoutePlaybackTimingMode: String, CaseIterable, Codable, Sendable {
     case fixedSpeed
 }
 
+enum RoutePlaybackRunPaceStrategy: String, CaseIterable, Sendable {
+    case even
+    case negative
+    case positive
+
+    var displayName: LocalizedStringResource {
+        switch self {
+        case .even:
+            return TeleportStrings.routeRunPaceStrategyEven
+        case .negative:
+            return TeleportStrings.routeRunPaceStrategyNegative
+        case .positive:
+            return TeleportStrings.routeRunPaceStrategyPositive
+        }
+    }
+}
+
 struct RouteWaypoint: Identifiable, Equatable, Hashable, Codable, Sendable {
     let id: UUID
     var coordinate: LocationCoordinate

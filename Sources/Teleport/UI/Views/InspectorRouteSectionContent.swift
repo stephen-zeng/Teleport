@@ -16,13 +16,13 @@ struct LoadedRouteDetailsView: View {
         )
     }
 
-    private var routePlaybackTravelSpeedPresetBinding: Binding<Double> {
+    private var routePlaybackRunTotalTimePresetBinding: Binding<Double> {
         Binding(
             get: {
-                Double(viewModel.currentRoutePlaybackTravelSpeedPresetIndex)
+                Double(viewModel.currentRoutePlaybackRunTotalTimePresetIndex)
             },
             set: { newValue in
-                viewModel.setRoutePlaybackTravelSpeedPreset(index: Int(newValue.rounded()))
+                viewModel.setRoutePlaybackRunTotalTimePreset(index: Int(newValue.rounded()))
             }
         )
     }
@@ -238,24 +238,24 @@ struct LoadedRouteDetailsView: View {
 
             case .fixedSpeed:
                 LabeledContent {
-                    Text(String(format: "%.1f m/s", viewModel.routePlaybackTravelSpeedMetersPerSecond))
+                    Text(RouteInspectorFormatting.formattedDuration(viewModel.routePlaybackRunTotalTimeSeconds))
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
                 } label: {
-                    Text(TeleportStrings.routeTravelSpeedLabel)
+                    Text(TeleportStrings.routeRunTotalTimeLabel)
                         .font(.caption.weight(.medium))
                 }
 
                 Slider(
-                    value: routePlaybackTravelSpeedPresetBinding,
-                    in: viewModel.routePlaybackTravelSpeedPresetRange,
+                    value: routePlaybackRunTotalTimePresetBinding,
+                    in: viewModel.routePlaybackRunTotalTimePresetRange,
                     step: 1
                 )
 
                 HStack {
-                    Text(String(format: "1.5 m/s · %@", String(localized: TeleportStrings.movementWalkingSpeed)))
+                    Text("5m")
                     Spacer(minLength: 12)
-                    Text(String(format: "40.0 m/s · %@", String(localized: TeleportStrings.movementHighwaySpeed)))
+                    Text("2h")
                 }
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
@@ -266,29 +266,43 @@ struct LoadedRouteDetailsView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 LabeledContent {
-                    Text(String(format: "%.0f%%", viewModel.routePlaybackSpeedVariationFraction * 100))
+                    Picker(selection: $viewModel.routePlaybackRunPaceStrategy) {
+                        ForEach(RoutePlaybackRunPaceStrategy.allCases, id: \.self) { strategy in
+                            Text(strategy.displayName).tag(strategy)
+                        }
+                    } label: {
+                    }
+                    .labelsHidden()
+                    .frame(width: 130)
+                } label: {
+                    Text(TeleportStrings.routeRunPaceStrategyLabel)
+                        .font(.caption.weight(.medium))
+                }
+
+                LabeledContent {
+                    Text(String(format: "%.0f%%", viewModel.routePlaybackRunFatigueFraction * 100))
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
                 } label: {
-                    Text(TeleportStrings.routeSpeedVariationLabel)
+                    Text(TeleportStrings.routeRunFatigueLabel)
                         .font(.caption.weight(.medium))
                 }
 
                 Slider(
-                    value: $viewModel.routePlaybackSpeedVariationFraction,
-                    in: viewModel.routePlaybackSpeedVariationRange,
-                    step: 0.05
+                    value: $viewModel.routePlaybackRunFatigueFraction,
+                    in: viewModel.routePlaybackRunFatigueRange,
+                    step: 0.01
                 )
 
                 HStack {
                     Text("0%")
                     Spacer(minLength: 12)
-                    Text("80%")
+                    Text("15%")
                 }
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
 
-                Text(TeleportStrings.routePacingHintSpeedVariation)
+                Text(TeleportStrings.routePacingHintRunFatigue)
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)

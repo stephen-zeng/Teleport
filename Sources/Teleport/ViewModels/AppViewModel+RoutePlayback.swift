@@ -160,8 +160,14 @@ extension AppViewModel {
         let timingMode: RoutePlaybackTimingMode
         let speedMultiplier: Double
         let fixedIntervalSeconds: Double
-        let travelSpeedMetersPerSecond: Double
-        let speedVariationFraction: Double
+        let runTotalTimeSeconds: Double
+        let runPaceStrategy: RoutePlaybackRunPaceStrategy
+        let runFatigueFraction: Double
+    }
+
+    private struct RunPaceSample {
+        let cumulativeDistanceMeters: Double
+        let speedMetersPerSecond: Double
     }
 
     private var routePlaybackTaskDelayBeforeRestartSeconds: UInt64 {
@@ -173,8 +179,9 @@ extension AppViewModel {
             timingMode: routePlaybackTimingMode,
             speedMultiplier: routePlaybackSpeedMultiplier,
             fixedIntervalSeconds: routePlaybackFixedIntervalSeconds,
-            travelSpeedMetersPerSecond: routePlaybackTravelSpeedMetersPerSecond,
-            speedVariationFraction: routePlaybackSpeedVariationFraction
+            runTotalTimeSeconds: routePlaybackRunTotalTimeSeconds,
+            runPaceStrategy: routePlaybackRunPaceStrategy,
+            runFatigueFraction: routePlaybackRunFatigueFraction
         )
     }
 
@@ -394,10 +401,11 @@ extension AppViewModel {
         let delays: [TimeInterval]
         switch pacing.timingMode {
         case .fixedSpeed:
-            delays = variedFixedSpeedDelays(
+            delays = simulatedRunPaceDelays(
                 distances: distances,
-                averageSpeedMetersPerSecond: pacing.travelSpeedMetersPerSecond,
-                variationFraction: pacing.speedVariationFraction,
+                totalTimeSeconds: pacing.runTotalTimeSeconds,
+                strategy: pacing.runPaceStrategy,
+                fatigue: pacing.runFatigueFraction,
                 routeID: route.id,
                 startingAfter: waypointIndex
             )
@@ -443,88 +451,162 @@ extension AppViewModel {
             return movementTickIntervalSeconds
         case .fixedSpeed:
             let distanceMeters = start.coordinate.distance(to: end.coordinate)
-            guard distanceMeters > 0, pacing.travelSpeedMetersPerSecond > 0 else {
+            guard distanceMeters > 0, let route = loadedRoute, route.totalDistanceMeters > 0 else {
                 return 0
             }
 
-            return distanceMeters / pacing.travelSpeedMetersPerSecond
+            return pacing.runTotalTimeSeconds * distanceMeters / route.totalDistanceMeters
         }
     }
 
-    private func variedFixedSpeedDelays(
+    private func simulatedRunPaceDelays(
         distances: [Double],
-        averageSpeedMetersPerSecond: Double,
-        variationFraction: Double,
+        totalTimeSeconds: Double,
+        strategy: RoutePlaybackRunPaceStrategy,
+        fatigue: Double,
         routeID: UUID,
         startingAfter waypointIndex: Int
     ) -> [TimeInterval] {
-        guard averageSpeedMetersPerSecond > 0 else {
+        guard totalTimeSeconds > 0 else {
             return distances.map { _ in 0 }
         }
 
-        let positiveDistance = distances.reduce(0) { $0 + max($1, 0) }
-        guard positiveDistance > 0 else {
+        let totalDistanceMeters = distances.reduce(0) { $0 + max($1, 0) }
+        guard totalDistanceMeters > 0 else {
             return distances.map { _ in 0 }
         }
 
-        let targetDuration = positiveDistance / averageSpeedMetersPerSecond
-        let variation = min(max(variationFraction, 0), routePlaybackSpeedVariationRange.upperBound)
-        let speeds = variedRouteSpeeds(
-            segmentCount: distances.count,
-            averageSpeedMetersPerSecond: averageSpeedMetersPerSecond,
-            variationFraction: variation,
+        let samples = simulatedRunPaceSamples(
+            totalTimeSeconds: totalTimeSeconds,
+            totalDistanceMeters: totalDistanceMeters,
+            strategy: strategy,
+            fatigue: fatigue,
             seed: routePlaybackVariationSeed(routeID: routeID, startingAfter: waypointIndex)
         )
-        let rawDurations = zip(distances, speeds).map { distance, speed in
-            guard distance > 0, speed > 0 else {
+
+        guard !samples.isEmpty else {
+            return distances.map { _ in 0 }
+        }
+
+        var previousDistance = 0.0
+        return distances.map { distance in
+            guard distance > 0 else {
                 return 0.0
             }
 
-            return distance / speed
+            let targetDistance = previousDistance + distance
+            let startTime = simulatedRunTime(
+                forDistance: previousDistance,
+                samples: samples,
+                totalTimeSeconds: totalTimeSeconds
+            )
+            let endTime = simulatedRunTime(
+                forDistance: min(targetDistance, totalDistanceMeters),
+                samples: samples,
+                totalTimeSeconds: totalTimeSeconds
+            )
+            previousDistance = targetDistance
+            return max(0, endTime - startTime)
         }
-        let rawDuration = rawDurations.reduce(0, +)
-        guard rawDuration > 0 else {
-            return distances.map { _ in 0 }
-        }
-
-        let durationScale = targetDuration / rawDuration
-        return rawDurations.map { $0 * durationScale }
     }
 
-    private func variedRouteSpeeds(
-        segmentCount: Int,
-        averageSpeedMetersPerSecond: Double,
-        variationFraction: Double,
+    private func simulatedRunPaceSamples(
+        totalTimeSeconds: Double,
+        totalDistanceMeters: Double,
+        strategy: RoutePlaybackRunPaceStrategy,
+        fatigue: Double,
         seed: UInt64
-    ) -> [Double] {
-        guard segmentCount > 0 else {
+    ) -> [RunPaceSample] {
+        guard totalTimeSeconds > 0, totalDistanceMeters > 0 else {
             return []
         }
 
-        guard variationFraction > 0 else {
-            return Array(repeating: averageSpeedMetersPerSecond, count: segmentCount)
-        }
+        let dt = 1.0
+        let waveAmplitude = 0.05
+        let waveTau = 45.0
+        let noiseAmplitude = 0.02
+        let warmupSeconds = 25.0
+        let minimumShapeFactor = 0.25
+        let sampleCount = max(1, Int(round(totalTimeSeconds / dt)))
+        let averageSpeed = totalDistanceMeters / totalTimeSeconds
+        let clampedFatigue = min(
+            max(fatigue, routePlaybackRunFatigueRange.lowerBound), routePlaybackRunFatigueRange.upperBound)
+        let ouDecay = exp(-dt / waveTau)
+        let ouSigma = waveAmplitude * sqrt(1.0 - ouDecay * ouDecay)
 
         var generator = SeededRandomNumberGenerator(seed: seed)
-        var deviation = 0.0
-        let meanReversion = 0.28
-        let noiseScale = averageSpeedMetersPerSecond * variationFraction * 0.45
-        let maxDeviation = averageSpeedMetersPerSecond * variationFraction
-        let minimumSpeed = max(averageSpeedMetersPerSecond * 0.20, 0.1)
+        var ou = 0.0
+        var rawSpeeds: [Double] = []
+        rawSpeeds.reserveCapacity(sampleCount)
 
-        return (0..<segmentCount).map { _ in
-            deviation += -meanReversion * deviation + generator.nextGaussian() * noiseScale
-            deviation = min(max(deviation, -maxDeviation), maxDeviation)
-            return max(minimumSpeed, averageSpeedMetersPerSecond + deviation)
+        for index in 0..<sampleCount {
+            let time = Double(index) * dt
+            let progress = time / totalTimeSeconds
+            let strategyTrend: Double
+            switch strategy {
+            case .negative:
+                strategyTrend = 1.0 + 0.05 * (progress - 0.5) * 2
+            case .positive:
+                strategyTrend = 1.0 - 0.05 * (progress - 0.5) * 2
+            case .even:
+                strategyTrend = 1.0
+            }
+
+            let trend = strategyTrend * (1.0 - clampedFatigue * progress)
+            let warmupProgress = min(max(time / warmupSeconds, 0), 1)
+            let warmup = 0.72 + 0.28 * pow(warmupProgress, 0.7)
+
+            if index > 0 {
+                ou = ouDecay * ou + ouSigma * generator.nextGaussian()
+            }
+            let highFrequencyNoise = noiseAmplitude * generator.nextGaussian()
+            let shape = max(minimumShapeFactor, trend * warmup * (1.0 + ou + highFrequencyNoise))
+            rawSpeeds.append(shape * averageSpeed)
         }
+
+        let rawDistance = rawSpeeds.reduce(0, +) * dt
+        guard rawDistance > 0 else {
+            return []
+        }
+
+        let scale = totalDistanceMeters / rawDistance
+        var cumulativeDistance = 0.0
+        return rawSpeeds.map { rawSpeed in
+            let speed = rawSpeed * scale
+            cumulativeDistance += speed * dt
+            return RunPaceSample(cumulativeDistanceMeters: cumulativeDistance, speedMetersPerSecond: speed)
+        }
+    }
+
+    private func simulatedRunTime(
+        forDistance distanceMeters: Double,
+        samples: [RunPaceSample],
+        totalTimeSeconds: Double
+    ) -> TimeInterval {
+        guard distanceMeters > 0 else {
+            return 0
+        }
+
+        guard let sampleIndex = samples.firstIndex(where: { $0.cumulativeDistanceMeters >= distanceMeters }) else {
+            return totalTimeSeconds
+        }
+
+        let sample = samples[sampleIndex]
+        let previousDistance = sampleIndex > 0 ? samples[sampleIndex - 1].cumulativeDistanceMeters : 0
+        let previousTime = Double(sampleIndex)
+        let distanceWithinSample = distanceMeters - previousDistance
+        let sampleDistance = max(sample.cumulativeDistanceMeters - previousDistance, Double.leastNonzeroMagnitude)
+        let sampleFraction = min(max(distanceWithinSample / sampleDistance, 0), 1)
+        return min(totalTimeSeconds, previousTime + sampleFraction)
     }
 
     private func routePlaybackVariationSeed(routeID: UUID, startingAfter waypointIndex: Int) -> UInt64 {
         var hasher = Hasher()
         hasher.combine(routeID)
         hasher.combine(waypointIndex)
-        hasher.combine(Int((routePlaybackTravelSpeedMetersPerSecond * 100).rounded()))
-        hasher.combine(Int((routePlaybackSpeedVariationFraction * 100).rounded()))
+        hasher.combine(Int((routePlaybackRunTotalTimeSeconds * 10).rounded()))
+        hasher.combine(routePlaybackRunPaceStrategy.rawValue)
+        hasher.combine(Int((routePlaybackRunFatigueFraction * 1000).rounded()))
         return UInt64(bitPattern: Int64(hasher.finalize()))
     }
 
