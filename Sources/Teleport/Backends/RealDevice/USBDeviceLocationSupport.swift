@@ -65,7 +65,7 @@ enum USBDeviceErrorParser {
             return ServiceError.unavailable(friendlyMessage)
         }
 
-        if let dependencyGuidance = missingPythonDependencyMessage(stderr: stderrText, stdout: stdoutText) {
+        if let dependencyGuidance = pythonDependencyGuidanceMessage(stderr: stderrText, stdout: stdoutText) {
             return ServiceError.unavailable(dependencyGuidance)
         }
 
@@ -98,17 +98,38 @@ enum USBDeviceErrorParser {
         return nil
     }
 
-    private static func missingPythonDependencyMessage(stderr: String, stdout: String) -> String? {
+    private static func pythonDependencyGuidanceMessage(stderr: String, stdout: String) -> String? {
         let combined = [stderr, stdout].joined(separator: "\n")
 
-        guard combined.localizedCaseInsensitiveContains("pymobiledevice3 is not installed") else {
+        guard
+            combined.localizedCaseInsensitiveContains("pymobiledevice3 is not installed")
+                || combined.localizedCaseInsensitiveContains("requires pymobiledevice3")
+                || combined.localizedCaseInsensitiveContains("version is too old")
+        else {
             return nil
         }
 
+        let requirement = extractValue(in: combined, prefix: "Minimum supported pymobiledevice3: ")
+        let installedVersion = extractValue(in: combined, prefix: "Installed pymobiledevice3: ")
         let resolvedPython = extractValue(in: combined, prefix: "Resolved Python: ")
         let installCommand = extractValue(in: combined, prefix: "Install command: ")
 
-        var lines = [String(localized: TeleportStrings.pythonDependencyMissingIntro)]
+        var lines: [String] = []
+
+        if let requirement {
+            lines.append(String(localized: TeleportStrings.pythonDependencyRequirementIntro(requirement)))
+        }
+
+        if let installedVersion {
+            lines.append(String(localized: TeleportStrings.pythonDependencyOutdatedIntro))
+            lines.append(String(localized: TeleportStrings.installedPythonDependencyVersionLine(installedVersion)))
+        } else {
+            lines.append(String(localized: TeleportStrings.pythonDependencyMissingIntro))
+        }
+
+        if let requirement {
+            lines.append(String(localized: TeleportStrings.minimumSupportedPythonDependencyVersionLine(requirement)))
+        }
 
         if let resolvedPython {
             lines.append(String(localized: TeleportStrings.resolvedPythonLine(resolvedPython)))
@@ -138,18 +159,19 @@ enum USBDeviceErrorParser {
 }
 
 struct CoreDeviceListResponse: Decodable {
-    let result: CoreDeviceResult
+    let result: CoreDeviceResult?
 }
 
 struct CoreDeviceResult: Decodable {
-    let devices: [CoreDeviceRecord]
+    let devices: [CoreDeviceRecord]?
 }
 
 struct CoreDeviceRecord: Decodable {
-    let capabilities: [CoreDeviceCapability]
-    let connectionProperties: CoreDeviceConnectionProperties
-    let deviceProperties: CoreDeviceProperties
-    let hardwareProperties: CoreDeviceHardwareProperties
+    let capabilities: [CoreDeviceCapability]?
+    let connectionProperties: CoreDeviceConnectionProperties?
+    let deviceProperties: CoreDeviceProperties?
+    let hardwareProperties: CoreDeviceHardwareProperties?
+    let identifier: String?
 }
 
 struct CoreDeviceCapability: Decodable {
@@ -157,7 +179,7 @@ struct CoreDeviceCapability: Decodable {
 }
 
 struct CoreDeviceConnectionProperties: Decodable {
-    let pairingState: String
+    let pairingState: String?
     let transportType: String?
     let tunnelState: String?
     let tunnelTransportProtocol: String?
@@ -165,15 +187,17 @@ struct CoreDeviceConnectionProperties: Decodable {
 
 struct CoreDeviceProperties: Decodable {
     let ddiServicesAvailable: Bool?
-    let developerModeStatus: String
+    let developerModeStatus: String?
     let bootState: String?
-    let name: String
+    let name: String?
     let osBuildUpdate: String?
-    let osVersionNumber: String
+    let osVersionNumber: String?
 }
 
 struct CoreDeviceHardwareProperties: Decodable {
-    let platform: String
-    let reality: String
-    let udid: String
+    let deviceType: String?
+    let marketingName: String?
+    let platform: String?
+    let reality: String?
+    let udid: String?
 }

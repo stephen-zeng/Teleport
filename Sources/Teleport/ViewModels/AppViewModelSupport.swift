@@ -3,6 +3,7 @@ import Foundation
 enum AppViewModelPreferences {
     static let suppressUSBPrivilegeNotice = "suppressUSBPrivilegeNotice"
     static let savedRoutes = "savedRoutes"
+    static let savedLocations = "savedLocations"
 }
 
 struct MovementControlVector: Equatable, Sendable {
@@ -51,10 +52,10 @@ struct USBSetupGuide: Equatable {
         }
 
         if let resolvedPythonPath {
-            return Self.shellQuoted(resolvedPythonPath) + " -m pip install --user pymobiledevice3"
+            return Self.shellQuoted(resolvedPythonPath) + " -m pip install --user --upgrade pymobiledevice3"
         }
 
-        return "python3 -m pip install --user pymobiledevice3"
+        return "python3 -m pip install --user --upgrade pymobiledevice3"
     }
 
     var pythonStatusText: String {
@@ -77,14 +78,21 @@ struct USBSetupGuide: Equatable {
 struct PythonDependencyInstallGuide: Identifiable, Equatable {
     let resolvedPythonPath: String
     let installCommand: String
+    let installedVersion: String?
+    let minimumSupportedVersion: String?
 
     var id: String {
-        resolvedPythonPath + "\n" + installCommand
+        [resolvedPythonPath, installCommand, installedVersion ?? "", minimumSupportedVersion ?? ""].joined(
+            separator: "\n")
     }
 
     static func parse(from message: String) -> PythonDependencyInstallGuide? {
         let lines = message.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-        guard lines.contains(where: { $0.localizedCaseInsensitiveContains("pymobiledevice3 is missing") }) else {
+        guard
+            lines.contains(where: { $0.localizedCaseInsensitiveContains("requires pymobiledevice3") })
+                || lines.contains(where: { $0.localizedCaseInsensitiveContains("pymobiledevice3 is missing") })
+                || lines.contains(where: { $0.localizedCaseInsensitiveContains("version is too old") })
+        else {
             return nil
         }
 
@@ -99,7 +107,11 @@ struct PythonDependencyInstallGuide: Identifiable, Equatable {
 
         return PythonDependencyInstallGuide(
             resolvedPythonPath: resolvedPythonPath,
-            installCommand: installCommand
+            installCommand: installCommand,
+            installedVersion: lines.first(where: { $0.hasPrefix("Installed pymobiledevice3: ") })?
+                .replacingOccurrences(of: "Installed pymobiledevice3: ", with: ""),
+            minimumSupportedVersion: lines.first(where: { $0.hasPrefix("Minimum supported pymobiledevice3: ") })?
+                .replacingOccurrences(of: "Minimum supported pymobiledevice3: ", with: "")
         )
     }
 }

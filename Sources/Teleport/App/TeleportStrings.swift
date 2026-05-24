@@ -13,9 +13,9 @@ enum TeleportStrings {
         "Administrator approval was canceled before the macOS password prompt."
     static let disconnectedAndClearedLocations: LocalizedStringResource =
         "Disconnected and cleared simulated locations."
-    static let missingPythonDependency: LocalizedStringResource = "Missing Python dependency"
-    static let installPythonDependency: LocalizedStringResource =
-        "Install pymobiledevice3 for the selected Python interpreter to continue physical-device location simulation."
+    static let pythonDependencyIssue: LocalizedStringResource = "Python dependency issue"
+    static let fixPythonDependency: LocalizedStringResource =
+        "Install or upgrade pymobiledevice3 for the selected Python interpreter to continue physical-device location simulation."
     static let selectDeviceFirst: LocalizedStringResource = "Select a device first."
     static let pythonUnavailableInShell: LocalizedStringResource =
         "python3 is not currently resolving from your shell. Install Python 3 first, then refresh devices."
@@ -38,6 +38,12 @@ enum TeleportStrings {
     static let routeEdit: LocalizedStringResource = "Edit"
     static let routeExportGPX: LocalizedStringResource = "Export GPX"
     static let routeClear: LocalizedStringResource = "Clear Route"
+    static let savedLocationsTitle: LocalizedStringResource = "Saved Locations"
+    static let savedLocationsEmptyState: LocalizedStringResource = "No saved locations yet."
+    static let saveLocation: LocalizedStringResource = "Save Location"
+    static let newLocationName: LocalizedStringResource = "New Location"
+    static let savedLocationRename: LocalizedStringResource = "Rename"
+    static let savedLocationDelete: LocalizedStringResource = "Delete"
     static let savedRoutesTitle: LocalizedStringResource = "Saved Routes"
     static let savedRouteLoad: LocalizedStringResource = "Load"
     static let savedRouteRename: LocalizedStringResource = "Rename"
@@ -172,7 +178,9 @@ enum TeleportStrings {
     static let selectUSBDeviceToResolvePython: LocalizedStringResource =
         "Select a physical device to resolve the helper Python interpreter."
     static let pythonDependencyMissingIntro: LocalizedStringResource =
-        "pymobiledevice3 is missing for the Python executable used by physical-device simulation."
+        "pymobiledevice3 is not installed for the Python executable used by physical-device simulation."
+    static let pythonDependencyOutdatedIntro: LocalizedStringResource =
+        "The installed pymobiledevice3 version is too old for physical-device simulation."
     static let retryUSBLocationAction: LocalizedStringResource = "Then retry the physical-device location action."
     static let usbSudoPrompt: LocalizedStringResource =
         "Teleport requires administrator privileges for physical-device location simulation."
@@ -197,8 +205,14 @@ enum TeleportStrings {
         "Wait for the current navigation segment to finish loading."
     static let routeBuilderEditOnlyUserCreated: LocalizedStringResource =
         "Editing is only available for user-created routes."
+    static let saveLocationPromptTitle: LocalizedStringResource = "Save Location"
+    static let saveLocationPromptMessage: LocalizedStringResource =
+        "Choose a name for the saved location."
     static let saveRoutePromptTitle: LocalizedStringResource = "Save Route in App"
     static let saveRoutePromptMessage: LocalizedStringResource = "Choose a name for the saved route."
+    static let renameLocationPromptTitle: LocalizedStringResource = "Rename Saved Location"
+    static let renameLocationPromptMessage: LocalizedStringResource =
+        "Enter a new name for this saved location."
     static let renameRoutePromptTitle: LocalizedStringResource = "Rename Saved Route"
     static let renameRoutePromptMessage: LocalizedStringResource = "Enter a new name for this saved route."
 
@@ -254,6 +268,10 @@ enum TeleportStrings {
         "Saved \(name) in the app."
     }
 
+    static func savedLocationInApp(_ name: String) -> LocalizedStringResource {
+        "Saved location \(name)."
+    }
+
     static func updatedSavedRouteInApp(_ name: String) -> LocalizedStringResource {
         "Updated saved route \(name)."
     }
@@ -266,12 +284,28 @@ enum TeleportStrings {
         "Loaded saved route \(name)."
     }
 
+    static func loadedSavedLocation(_ name: String) -> LocalizedStringResource {
+        "Loaded saved location \(name)."
+    }
+
     static func renamedSavedRoute(_ name: String) -> LocalizedStringResource {
         "Renamed saved route to \(name)."
     }
 
+    static func renamedSavedLocation(_ name: String) -> LocalizedStringResource {
+        "Renamed saved location to \(name)."
+    }
+
     static func deletedSavedRoute(_ name: String) -> LocalizedStringResource {
         "Deleted saved route \(name)."
+    }
+
+    static func deletedSavedLocation(_ name: String) -> LocalizedStringResource {
+        "Deleted saved location \(name)."
+    }
+
+    static func copiedSavedLocationCoordinates(_ name: String) -> LocalizedStringResource {
+        "Copied coordinates for \(name)."
     }
 
     static func exportedRouteAsGPX(_ name: String) -> LocalizedStringResource {
@@ -350,5 +384,17 @@ enum TeleportStrings {
 
     static func runCommandLine(_ command: String) -> LocalizedStringResource {
         "Run: \(command)"
+    }
+
+    static func pythonDependencyRequirementIntro(_ version: String) -> LocalizedStringResource {
+        "Physical-device simulation requires pymobiledevice3 \(version) or newer."
+    }
+
+    static func installedPythonDependencyVersionLine(_ version: String) -> LocalizedStringResource {
+        "Installed pymobiledevice3: \(version)"
+    }
+
+    static func minimumSupportedPythonDependencyVersionLine(_ version: String) -> LocalizedStringResource {
+        "Minimum supported pymobiledevice3: \(version)"
     }
 }

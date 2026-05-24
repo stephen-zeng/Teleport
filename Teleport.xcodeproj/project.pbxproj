@@ -41,6 +41,8 @@
 		F1A100032F7100010025CED2 /* AppViewModel+SavedRoutes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A100022F7100010025CED2 /* AppViewModel+SavedRoutes.swift */; };
 		F1A100052F7100010025CED2 /* InspectorRouteSectionControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A100042F7100010025CED2 /* InspectorRouteSectionControls.swift */; };
 		F1A100072F7100010025CED2 /* InspectorRouteSectionContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A100062F7100010025CED2 /* InspectorRouteSectionContent.swift */; };
+		F2A200012F7200010025CED2 /* SavedLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A200002F7200010025CED2 /* SavedLocation.swift */; };
+		F2A200032F7200010025CED2 /* AppViewModel+SavedLocations.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A200022F7200010025CED2 /* AppViewModel+SavedLocations.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -79,6 +81,8 @@
 		F1A100022F7100010025CED2 /* AppViewModel+SavedRoutes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppViewModel+SavedRoutes.swift"; sourceTree = "<group>"; };
 		F1A100042F7100010025CED2 /* InspectorRouteSectionControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorRouteSectionControls.swift; sourceTree = "<group>"; };
 		F1A100062F7100010025CED2 /* InspectorRouteSectionContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorRouteSectionContent.swift; sourceTree = "<group>"; };
+		F2A200002F7200010025CED2 /* SavedLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedLocation.swift; sourceTree = "<group>"; };
+		F2A200022F7200010025CED2 /* AppViewModel+SavedLocations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppViewModel+SavedLocations.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -174,6 +178,7 @@
 			children = (
 				9FF151DF2F5D80350025CED2 /* Device.swift */,
 				9FF151DF2F5D80350025CED3 /* RouteModels.swift */,
+				F2A200002F7200010025CED2 /* SavedLocation.swift */,
 				9FF151E02F5D80350025CED2 /* LocationCoordinate.swift */,
 				9FF151E12F5D80350025CED2 /* SimulationState.swift */,
 			);
@@ -234,6 +239,7 @@
 				B2C3D4E42F5EA0010025CED2 /* AppViewModel+Operations.swift */,
 				F1A100002F7100010025CED2 /* AppViewModel+RouteBuilder.swift */,
 				D1E2F3212F7000010025CED2 /* AppViewModel+RoutePlayback.swift */,
+				F2A200022F7200010025CED2 /* AppViewModel+SavedLocations.swift */,
 				F1A100022F7100010025CED2 /* AppViewModel+SavedRoutes.swift */,
 			);
 			path = ViewModels;
@@ -290,7 +296,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2630;
-				LastUpgradeCheck = 2630;
+				LastUpgradeCheck = 2640;
 				TargetAttributes = {
 					9FF14F6D2F5D7D6C0025CED2 = {
 						CreatedOnToolsVersion = 26.3;
@@ -350,6 +356,7 @@
 				9FF152052F5D80350025CED2 /* InspectorPanelSupportViews.swift in Sources */,
 				9FF151FA2F5D80350025CED2 /* Device.swift in Sources */,
 				9FF151FA2F5D80350025CED3 /* RouteModels.swift in Sources */,
+				F2A200012F7200010025CED2 /* SavedLocation.swift in Sources */,
 				9FF151FB2F5D80350025CED2 /* SimulationState.swift in Sources */,
 				9FF151FC2F5D80350025CED2 /* AppViewModel.swift in Sources */,
 				D1E2F3122F7000010025CED2 /* AppViewModel+Movement.swift in Sources */,
@@ -357,6 +364,7 @@
 				B2C3D4E62F5EA0010025CED2 /* AppViewModel+Operations.swift in Sources */,
 				F1A100012F7100010025CED2 /* AppViewModel+RouteBuilder.swift in Sources */,
 				D1E2F3222F7000010025CED2 /* AppViewModel+RoutePlayback.swift in Sources */,
+				F2A200032F7200010025CED2 /* AppViewModel+SavedLocations.swift in Sources */,
 				F1A100032F7100010025CED2 /* AppViewModel+SavedRoutes.swift in Sources */,
 				C4D5E6F82F6A20010025CED2 /* GPXRouteParser.swift in Sources */,
 				9FF151FD2F5D80350025CED2 /* LocationSimulationService.swift in Sources */,
@@ -377,6 +385,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -406,6 +415,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = LB52UWA223;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -431,6 +441,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -442,6 +453,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -471,6 +483,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = LB52UWA223;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -489,6 +502,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
@@ -501,11 +515,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				AUTOMATION_APPLE_EVENTS = NO;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = ZW372988NV;
+				CURRENT_PROJECT_VERSION = 2;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 768QBKMWKW;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -523,9 +539,11 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.3.1;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.4.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.samuelhe.Teleport;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				RUNTIME_EXCEPTION_ALLOW_DYLD_ENVIRONMENT_VARIABLES = NO;
 				RUNTIME_EXCEPTION_ALLOW_JIT = NO;
@@ -549,11 +567,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				AUTOMATION_APPLE_EVENTS = NO;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = ZW372988NV;
+				CURRENT_PROJECT_VERSION = 2;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 768QBKMWKW;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -571,9 +591,11 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.3.1;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.4.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.samuelhe.Teleport;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				RUNTIME_EXCEPTION_ALLOW_DYLD_ENVIRONMENT_VARIABLES = NO;
 				RUNTIME_EXCEPTION_ALLOW_JIT = NO;

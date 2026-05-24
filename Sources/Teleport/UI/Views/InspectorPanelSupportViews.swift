@@ -169,15 +169,35 @@ struct PythonDependencyInstallSheet: View {
                     .frame(width: 28)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Install pymobiledevice3")
+                    Text("Install or Upgrade pymobiledevice3")
                         .font(.title3.weight(.semibold))
 
                     Text(
-                        "Physical-device simulation needs pymobiledevice3 in the exact Python interpreter selected for the helper. Install it as your normal macOS user so Teleport can reuse that package path after administrator approval."
+                        "Physical-device simulation needs pymobiledevice3 5.0 or newer in the exact Python interpreter selected for the helper. Run the fix command as your normal macOS user so Teleport can reuse that package path after administrator approval."
                     )
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            if let installedVersion = guide.installedVersion, !installedVersion.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Installed Version")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    SelectableCodeRow(text: installedVersion)
+                }
+            }
+
+            if let minimumVersion = guide.minimumSupportedVersion, !minimumVersion.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Minimum Supported Version")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    SelectableCodeRow(text: minimumVersion)
                 }
             }
 
@@ -190,7 +210,7 @@ struct PythonDependencyInstallSheet: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Install Command")
+                Text("Fix Command")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
 
@@ -386,7 +406,7 @@ struct USBOnboardingSheet: View {
                 SimpleSecurityRow(
                     icon: "shippingbox",
                     text:
-                        "Install pymobiledevice3 for the same Python interpreter used by the device helper. The command below is meant to run as your normal macOS user."
+                        "Install or upgrade pymobiledevice3 5.0 or newer for the same Python interpreter used by the device helper. The command below is meant to run as your normal macOS user."
                 )
                 SimpleSecurityRow(
                     icon: "wifi",
@@ -435,15 +455,17 @@ struct USBOnboardingSheet: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Install Command")
+                Text("Install or Upgrade Command")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
 
-                SelectableCodeRow(text: guide?.pythonInstallCommand ?? "python3 -m pip install pymobiledevice3")
+                SelectableCodeRow(
+                    text: guide?.pythonInstallCommand ?? "python3 -m pip install --upgrade pymobiledevice3"
+                )
             }
 
             Text(
-                "Run the install command in Terminal as your normal macOS user if needed, then continue. You can copy the command directly from this sheet."
+                "Run the command in Terminal as your normal macOS user if needed, then continue. You can copy it directly from this sheet."
             )
             .font(.footnote)
             .foregroundStyle(.secondary)
@@ -460,7 +482,7 @@ struct USBOnboardingSheet: View {
                 Button("Copy Install Command") {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(
-                        guide?.pythonInstallCommand ?? "python3 -m pip install pymobiledevice3",
+                        guide?.pythonInstallCommand ?? "python3 -m pip install --upgrade pymobiledevice3",
                         forType: .string
                     )
                 }

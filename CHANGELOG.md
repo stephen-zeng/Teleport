@@ -4,6 +4,29 @@
 
 All notable changes to Teleport are documented in this file.
 
+## v0.4.1 - 2026-05-18
+
+### Added
+
+- Added saved locations in the map workspace, with a panel for saving the current coordinate, browsing stored locations, renaming entries, copying coordinates, and deleting saved items.
+
+## v0.4.0 - 2026-05-15
+
+### Changed
+
+- Tightened the physical-device `pymobiledevice3` requirement to `5.0` or newer, and updated the helper, in-app guidance, and documentation to steer upgrades through the exact Python interpreter Teleport resolved.
+
+### Fixed
+
+- Fixed physical-device helper startup across supported `pymobiledevice3` releases by handling older and newer async API shapes consistently while stopping unsupported pre-`5.0` installs before tunnel startup.
+- Fixed CoreDevice physical-device discovery parsing so devices still load when `devicectl` omits non-essential fields from the JSON payload.
+
+## v0.3.2 - 2026-05-13
+
+### Fixed
+
+- Clarified the physical-device `pymobiledevice3` install flow so the helper and Terminal instructions consistently point at the same Python interpreter and normal macOS user account.
+
 ## v0.3.1 - 2026-05-04
 
 ### Fixed

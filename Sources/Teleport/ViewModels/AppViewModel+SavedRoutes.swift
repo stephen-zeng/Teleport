@@ -76,7 +76,7 @@ extension AppViewModel {
 
         let defaultName = suggestedDuplicateRouteName(for: loadedRoute?.name ?? "Route")
         guard
-            let routeName = promptForRouteName(
+            let routeName = promptForSavedItemName(
                 title: TeleportStrings.saveRoutePromptTitle,
                 message: TeleportStrings.saveRoutePromptMessage,
                 defaultName: defaultName,
@@ -135,7 +135,7 @@ extension AppViewModel {
 
         let defaultName = suggestedDuplicateRouteName(for: loadedRoute.name)
         guard
-            let routeName = promptForRouteName(
+            let routeName = promptForSavedItemName(
                 title: TeleportStrings.saveRoutePromptTitle,
                 message: TeleportStrings.saveRoutePromptMessage,
                 defaultName: defaultName,
@@ -144,7 +144,6 @@ extension AppViewModel {
         else {
             return
         }
-
         let savedRoute = SimulatedRoute(
             name: routeName,
             source: loadedRoute.source,
@@ -181,7 +180,7 @@ extension AppViewModel {
 
     func renameSavedRoute(_ route: SimulatedRoute) {
         guard
-            let routeName = promptForRouteName(
+            let routeName = promptForSavedItemName(
                 title: TeleportStrings.renameRoutePromptTitle,
                 message: TeleportStrings.renameRoutePromptMessage,
                 defaultName: route.name,
@@ -243,7 +242,7 @@ extension AppViewModel {
         return trimmedName + " Copy"
     }
 
-    private func promptForRouteName(
+    func promptForSavedItemName(
         title: LocalizedStringResource,
         message: LocalizedStringResource,
         defaultName: String,

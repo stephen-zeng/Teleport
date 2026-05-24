@@ -8,6 +8,7 @@ struct MapWorkspaceView: View {
     @StateObject private var searchModel = LocationSearchModel()
     @StateObject private var startupLocationModel = StartupLocationModel()
     @FocusState private var isSearchFieldFocused: Bool
+    @SceneStorage("mapWorkspaceSavedLocationsPanelExpanded") private var isSavedLocationsPanelExpanded = false
     @State private var pendingCoordinateSyncTask: Task<Void, Never>?
     @State private var pendingCameraUpdateTask: Task<Void, Never>?
     @State private var hasAppliedStartupLocation = false
@@ -73,8 +74,7 @@ struct MapWorkspaceView: View {
                         MapWorkspaceCurrentLocationButton {
                             recenterToCurrentLocation(currentLocationCoordinate)
                         }
-                        .padding(.top, 72)
-                        .padding(.trailing, 16)
+                        .padding(16)
                     }
                 }
                 .overlay(alignment: .topLeading) {
@@ -89,7 +89,9 @@ struct MapWorkspaceView: View {
                 }
 
                 MapWorkspaceSearchOverlayView(
+                    viewModel: viewModel,
                     searchModel: searchModel,
+                    isSavedLocationsExpanded: $isSavedLocationsPanelExpanded,
                     isSearchFieldFocused: $isSearchFieldFocused,
                     shouldShowHistoryOverlay: shouldShowHistoryOverlay,
                     onSelectCompletion: { completion in
@@ -106,9 +108,20 @@ struct MapWorkspaceView: View {
             .animation(.easeInOut(duration: 0.2), value: searchModel.errorMessage)
             .animation(.easeInOut(duration: 0.2), value: searchModel.history)
 
-            HStack(spacing: 12) {
-                TextField("Latitude", text: $viewModel.latitudeText)
-                TextField("Longitude", text: $viewModel.longitudeText)
+            HStack(alignment: .center, spacing: 12) {
+                HStack(spacing: 12) {
+                    TextField("Latitude", text: $viewModel.latitudeText)
+                    TextField("Longitude", text: $viewModel.longitudeText)
+                }
+                .frame(maxWidth: .infinity)
+
+                Button {
+                    viewModel.saveCurrentLocation()
+                } label: {
+                    Label(TeleportStrings.saveLocation, systemImage: "plus.circle")
+                }
+                .buttonStyle(.bordered)
+                .disabled(!viewModel.currentLocationCanBeSaved)
             }
             .textFieldStyle(.roundedBorder)
         }
@@ -207,16 +220,7 @@ struct MapWorkspaceView: View {
     }
 
     private var parsedManualCoordinate: LocationCoordinate? {
-        guard
-            let latitude = Double(viewModel.latitudeText),
-            let longitude = Double(viewModel.longitudeText),
-            (-90.0...90.0).contains(latitude),
-            (-180.0...180.0).contains(longitude)
-        else {
-            return nil
-        }
-
-        return LocationCoordinate(latitude: latitude, longitude: longitude)
+        viewModel.currentCoordinate
     }
 
     private var shouldShowHistoryOverlay: Bool {

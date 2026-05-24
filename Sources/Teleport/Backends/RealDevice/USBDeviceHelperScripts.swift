@@ -1,13 +1,25 @@
 import Foundation
 
 enum USBDeviceScript {
+    static let minimumSupportedPymobiledevice3Version = "5.0"
+
     static let pythonResolutionCommand = #"""
         python3 <<'PYTHON'
+        import importlib.metadata
         import json
         import os
         import shlex
+        import re
         import site
         import sys
+
+
+        def parse_version(version_text):
+            parts = [int(part) for part in re.findall(r"\d+", version_text)[:2]]
+            while len(parts) < 2:
+                parts.append(0)
+            return tuple(parts)
+
 
         executable = os.path.realpath(sys.executable)
         is_venv = getattr(sys, "base_prefix", sys.prefix) != sys.prefix or hasattr(sys, "real_prefix")
@@ -27,15 +39,31 @@ enum USBDeviceScript {
         prefers_user_install = (not is_venv) and (
             not global_site_paths or not any(os.access(path, os.W_OK) for path in global_site_paths)
         )
-        install_command_parts = [shlex.quote(executable), "-m", "pip", "install"]
+        install_command_parts = [shlex.quote(executable), "-m", "pip", "install", "--upgrade"]
         if prefers_user_install:
             install_command_parts.append("--user")
         install_command_parts.append("pymobiledevice3")
 
+        minimum_version = "\#(minimumSupportedPymobiledevice3Version)"
+        try:
+            installed_version = importlib.metadata.version("pymobiledevice3")
+        except importlib.metadata.PackageNotFoundError:
+            installed_version = None
+
+        if installed_version is None:
+            dependency_status = "missing"
+        elif parse_version(installed_version) < parse_version(minimum_version):
+            dependency_status = "outdated"
+        else:
+            dependency_status = "ok"
+
         print(
             json.dumps(
                 {
+                    "dependency_status": dependency_status,
                     "executable": executable,
+                    "minimum_supported_version": minimum_version,
+                    "pymobiledevice3_version": installed_version,
                     "site_paths": site_paths,
                     "install_command": " ".join(install_command_parts),
                 }
@@ -46,6 +74,8 @@ enum USBDeviceScript {
 
     static let pythonHelperScript = #"""
         import asyncio
+        import importlib.metadata
+        import inspect
         import os
         import re
         import sys
@@ -67,6 +97,54 @@ enum USBDeviceScript {
             write_status(status_path, "READY")
 
 
+        async def maybe_await(value):
+            if inspect.isawaitable(value):
+                return await value
+            return value
+
+
+        def installed_pymobiledevice3_version():
+            try:
+                return importlib.metadata.version("pymobiledevice3")
+            except importlib.metadata.PackageNotFoundError:
+                return None
+
+
+        def print_dependency_guidance(reason, install_command, installed_version=None):
+            minimum_version = "\#(minimumSupportedPymobiledevice3Version)"
+            print(
+                f"Physical-device simulation requires pymobiledevice3 {minimum_version} or newer.",
+                file=sys.stderr,
+            )
+            if reason == "missing":
+                print(
+                    "pymobiledevice3 is not installed for the Python executable used by physical-device simulation.",
+                    file=sys.stderr,
+                )
+            elif reason == "outdated":
+                print(
+                    "The installed pymobiledevice3 version is too old for physical-device simulation.",
+                    file=sys.stderr,
+                )
+            if installed_version is not None:
+                print(f"Installed pymobiledevice3: {installed_version}", file=sys.stderr)
+            print(f"Minimum supported pymobiledevice3: {minimum_version}", file=sys.stderr)
+            print(f"Resolved Python: {sys.executable}", file=sys.stderr)
+            print(f"Install command: {install_command}", file=sys.stderr)
+
+
+        def ensure_supported_pymobiledevice3(install_command):
+            installed_version = installed_pymobiledevice3_version()
+            if installed_version is None:
+                print_dependency_guidance("missing", install_command)
+                raise SystemExit(2)
+
+            minimum_version = "\#(minimumSupportedPymobiledevice3Version)"
+            if parse_version(installed_version) < parse_version(minimum_version):
+                print_dependency_guidance("outdated", install_command, installed_version)
+                raise SystemExit(2)
+
+
         def dvt_provider_class():
             try:
                 from pymobiledevice3.services.dvt.instruments.dvt_provider import DvtProvider
@@ -84,7 +162,7 @@ enum USBDeviceScript {
             simulation = LocationSimulation(dvt)
             connect = getattr(simulation, "connect", None)
             if connect is not None:
-                await connect()
+                await maybe_await(connect())
             return simulation
 
 
@@ -115,16 +193,16 @@ enum USBDeviceScript {
                     action = parts[0].upper()
 
                     if action == "SET" and len(parts) == 3:
-                        await simulation.set(float(parts[1]), float(parts[2]))
+                        await maybe_await(simulation.set(float(parts[1]), float(parts[2])))
                     elif action == "CLEAR":
-                        await simulation.clear()
+                        await maybe_await(simulation.clear())
                     elif action == "STOP":
                         break
                     else:
                         print(f"Unsupported helper command: {command}", file=sys.stderr)
             finally:
                 transport.close()
-                await simulation.clear()
+                await maybe_await(simulation.clear())
 
 
         async def run_pre_ios17(mode, udid, connection_type, status_path, stop_path, latitude, longitude):
@@ -133,20 +211,20 @@ enum USBDeviceScript {
             DvtProvider = dvt_provider_class()
 
             write_status(status_path, "LOCKDOWN")
-            lockdown = await create_using_usbmux(udid, connection_type=connection_type, autopair=True)
+            lockdown = await maybe_await(create_using_usbmux(udid, connection_type=connection_type, autopair=True))
             try:
                 write_status(status_path, "DVT")
                 async with DvtProvider(lockdown) as dvt:
                     simulation = await connected_location_simulation(dvt)
-                    await simulation.clear()
+                    await maybe_await(simulation.clear())
                     if mode == "set":
-                        await simulation.set(latitude, longitude)
+                        await maybe_await(simulation.set(latitude, longitude))
                         mark_ready(status_path)
                         await session_command_loop(simulation, stop_path)
                     else:
-                        await simulation.clear()
+                        await maybe_await(simulation.clear())
             finally:
-                await lockdown.close()
+                await maybe_await(lockdown.close())
 
 
         async def run_ios17_quic(mode, udid, status_path, stop_path, latitude, longitude):
@@ -162,7 +240,9 @@ enum USBDeviceScript {
 
             try:
                 write_status(status_path, "DISCOVERING_TUNNEL")
-                service_providers = await get_remote_pairing_tunnel_services(DEFAULT_BONJOUR_TIMEOUT, udid=udid)
+                service_providers = await maybe_await(
+                    get_remote_pairing_tunnel_services(DEFAULT_BONJOUR_TIMEOUT, udid=udid)
+                )
                 service_provider = service_providers[0] if service_providers else None
                 if service_provider is None:
                     raise RuntimeError(
@@ -177,16 +257,16 @@ enum USBDeviceScript {
                         write_status(status_path, "DVT")
                         async with DvtProvider(rsd) as dvt:
                             simulation = await connected_location_simulation(dvt)
-                            await simulation.clear()
+                            await maybe_await(simulation.clear())
                             if mode == "set":
-                                await simulation.set(latitude, longitude)
+                                await maybe_await(simulation.set(latitude, longitude))
                                 mark_ready(status_path)
                                 await session_command_loop(simulation, stop_path)
                             else:
-                                await simulation.clear()
+                                await maybe_await(simulation.clear())
             finally:
                 if service_provider is not None:
-                    await service_provider.close()
+                    await maybe_await(service_provider.close())
                 resume_remoted_if_required()
 
 
@@ -198,9 +278,9 @@ enum USBDeviceScript {
             DvtProvider = dvt_provider_class()
 
             write_status(status_path, "LOCKDOWN")
-            lockdown = await create_using_usbmux(udid, connection_type=connection_type, autopair=True)
+            lockdown = await maybe_await(create_using_usbmux(udid, connection_type=connection_type, autopair=True))
             write_status(status_path, "CREATING_TUNNEL_PROXY")
-            tunnel_proxy = await CoreDeviceTunnelProxy.create(lockdown)
+            tunnel_proxy = await maybe_await(CoreDeviceTunnelProxy.create(lockdown))
             try:
                 write_status(status_path, "STARTING_TUNNEL")
                 async with tunnel_proxy.start_tcp_tunnel() as tunnel_result:
@@ -209,16 +289,16 @@ enum USBDeviceScript {
                         write_status(status_path, "DVT")
                         async with DvtProvider(rsd) as dvt:
                             simulation = await connected_location_simulation(dvt)
-                            await simulation.clear()
+                            await maybe_await(simulation.clear())
                             if mode == "set":
-                                await simulation.set(latitude, longitude)
+                                await maybe_await(simulation.set(latitude, longitude))
                                 mark_ready(status_path)
                                 await session_command_loop(simulation, stop_path)
                             else:
-                                await simulation.clear()
+                                await maybe_await(simulation.clear())
             finally:
-                await tunnel_proxy.close()
-                await lockdown.close()
+                await maybe_await(tunnel_proxy.close())
+                await maybe_await(lockdown.close())
 
 
         async def main():
@@ -232,6 +312,7 @@ enum USBDeviceScript {
             latitude = float(sys.argv[8]) if mode == "set" else None
             longitude = float(sys.argv[9]) if mode == "set" else None
 
+            ensure_supported_pymobiledevice3(install_command)
             parsed_version = parse_version(version)
             connection_type = "USB" if device_kind == "physicalUSB" else "Network"
 
@@ -250,9 +331,7 @@ enum USBDeviceScript {
         except ModuleNotFoundError as error:
             if error.name == "pymobiledevice3":
                 install_command = sys.argv[7] if len(sys.argv) > 7 else sys.executable
-                print("pymobiledevice3 is not installed for the resolved Python executable.", file=sys.stderr)
-                print(f"Resolved Python: {sys.executable}", file=sys.stderr)
-                print(f"Install command: {install_command}", file=sys.stderr)
+                print_dependency_guidance("missing", install_command)
             else:
                 print(f"Missing Python module: {error.name}", file=sys.stderr)
             raise SystemExit(2)

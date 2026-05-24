@@ -2,13 +2,25 @@ import Foundation
 import OSLog
 
 final class USBDeviceSimulationRunner {
+    private enum PythonDependencyStatus: String, Decodable {
+        case missing
+        case outdated
+        case ok
+    }
+
     private struct ResolvedPythonEnvironment: Decodable {
+        let dependencyStatus: PythonDependencyStatus
         let executable: String
+        let minimumSupportedVersion: String
+        let pymobiledevice3Version: String?
         let sitePaths: [String]
         let installCommand: String
 
         enum CodingKeys: String, CodingKey {
+            case dependencyStatus = "dependency_status"
             case executable
+            case minimumSupportedVersion = "minimum_supported_version"
+            case pymobiledevice3Version = "pymobiledevice3_version"
             case sitePaths = "site_paths"
             case installCommand = "install_command"
         }
@@ -148,8 +160,8 @@ final class USBDeviceSimulationRunner {
             "Cleared physical-device simulated location for \(device.logLabel, privacy: .public)")
     }
 
-    private func resolvedHelperPythonEnvironment() throws -> ResolvedPythonEnvironment {
-        if let cachedResolvedPythonEnvironment {
+    private func resolvedHelperPythonEnvironment(refresh: Bool = false) throws -> ResolvedPythonEnvironment {
+        if !refresh, let cachedResolvedPythonEnvironment {
             return cachedResolvedPythonEnvironment
         }
 
@@ -174,7 +186,12 @@ final class USBDeviceSimulationRunner {
         }
 
         let resolvedEnvironment = ResolvedPythonEnvironment(
+            dependencyStatus: environment.dependencyStatus,
             executable: executablePath,
+            minimumSupportedVersion: environment.minimumSupportedVersion.trimmingCharacters(
+                in: .whitespacesAndNewlines),
+            pymobiledevice3Version: environment.pymobiledevice3Version?.trimmingCharacters(
+                in: .whitespacesAndNewlines),
             sitePaths: normalizedSitePaths(environment.sitePaths),
             installCommand: environment.installCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         )
@@ -193,13 +210,62 @@ final class USBDeviceSimulationRunner {
         return resolvedEnvironment
     }
 
+    private func validateResolvedPythonEnvironment(_ environment: ResolvedPythonEnvironment) throws {
+        switch environment.dependencyStatus {
+        case .ok:
+            return
+        case .missing:
+            throw ServiceError.unavailable(
+                pythonDependencyGuidanceMessage(
+                    installedVersion: nil,
+                    minimumSupportedVersion: environment.minimumSupportedVersion,
+                    resolvedPython: environment.executable,
+                    installCommand: environment.installCommand
+                )
+            )
+        case .outdated:
+            throw ServiceError.unavailable(
+                pythonDependencyGuidanceMessage(
+                    installedVersion: environment.pymobiledevice3Version,
+                    minimumSupportedVersion: environment.minimumSupportedVersion,
+                    resolvedPython: environment.executable,
+                    installCommand: environment.installCommand
+                )
+            )
+        }
+    }
+
+    private func pythonDependencyGuidanceMessage(
+        installedVersion: String?,
+        minimumSupportedVersion: String,
+        resolvedPython: String,
+        installCommand: String
+    ) -> String {
+        var lines = [String(localized: TeleportStrings.pythonDependencyRequirementIntro(minimumSupportedVersion))]
+
+        if let installedVersion, !installedVersion.isEmpty {
+            lines.append(String(localized: TeleportStrings.pythonDependencyOutdatedIntro))
+            lines.append(String(localized: TeleportStrings.installedPythonDependencyVersionLine(installedVersion)))
+        } else {
+            lines.append(String(localized: TeleportStrings.pythonDependencyMissingIntro))
+        }
+
+        lines.append(
+            String(localized: TeleportStrings.minimumSupportedPythonDependencyVersionLine(minimumSupportedVersion)))
+        lines.append(String(localized: TeleportStrings.resolvedPythonLine(resolvedPython)))
+        lines.append(String(localized: TeleportStrings.runCommandLine(installCommand)))
+        lines.append(String(localized: TeleportStrings.retryUSBLocationAction))
+        return lines.joined(separator: "\n")
+    }
+
     private func makeSimulationHelper(
         mode: String,
         device: Device,
         coordinate: LocationCoordinate?
     ) throws -> (helper: USBSimulationHelper, administratorPassword: String?) {
         let helperFiles = try USBDeviceScript.makeHelperFiles()
-        let pythonEnvironment = try resolvedHelperPythonEnvironment()
+        let pythonEnvironment = try resolvedHelperPythonEnvironment(refresh: true)
+        try validateResolvedPythonEnvironment(pythonEnvironment)
         let administratorPassword = try administratorPasswordIfNeeded(using: helperFiles.promptScriptURL)
         let process = Process()
         let stdinPipe = Pipe()

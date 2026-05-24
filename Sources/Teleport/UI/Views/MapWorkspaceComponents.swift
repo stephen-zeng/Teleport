@@ -140,8 +140,10 @@ extension LocationCoordinate {
 }
 
 struct MapWorkspaceSearchOverlayView: View {
+    @Bindable var viewModel: AppViewModel
     @ObservedObject var searchModel: LocationSearchModel
 
+    @Binding var isSavedLocationsExpanded: Bool
     let isSearchFieldFocused: FocusState<Bool>.Binding
     let shouldShowHistoryOverlay: Bool
     let onSelectCompletion: (LocationSearchCompletion) -> Void
@@ -149,7 +151,7 @@ struct MapWorkspaceSearchOverlayView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
 
@@ -168,12 +170,35 @@ struct MapWorkspaceSearchOverlayView: View {
                     }
                     .buttonStyle(.plain)
                 }
+
+                Divider()
+                    .frame(height: 20)
+
+                Button {
+                    withAnimation(.spring(response: 0.26, dampingFraction: 0.88)) {
+                        isSavedLocationsExpanded.toggle()
+                        searchModel.dismissOverlay()
+                        isSearchFieldFocused.wrappedValue = false
+                    }
+                } label: {
+                    Image(systemName: "bookmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(isSavedLocationsExpanded ? Color.accentColor : .secondary)
+                        .frame(width: 20, height: 24)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(String(localized: TeleportStrings.savedLocationsTitle))
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background(MapWorkspaceOverlayCardBackground(shadowOpacity: 0.16, shadowRadius: 12, shadowYOffset: 8))
 
-            if let errorMessage = searchModel.errorMessage {
+            if isSavedLocationsExpanded {
+                SavedLocationsPanelView(viewModel: viewModel)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .transition(.scale(scale: 0.98, anchor: .topTrailing).combined(with: .opacity))
+            } else if let errorMessage = searchModel.errorMessage {
                 Label {
                     Text(errorMessage)
                 } icon: {
@@ -399,5 +424,118 @@ struct MapWorkspaceRouteSpeedOverlay: View {
         }
 
         return String(format: "%.1f m/s", value)
+    }
+}
+
+struct SavedLocationsPanelView: View {
+    @Bindable var viewModel: AppViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                Label {
+                    Text(TeleportStrings.savedLocationsTitle)
+                        .font(.subheadline.weight(.semibold))
+                } icon: {
+                    Image(systemName: "bookmark")
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+            .padding(12)
+
+            Divider()
+
+            Group {
+                if viewModel.hasSavedLocations {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(viewModel.savedLocations) { location in
+                                SavedLocationRowView(viewModel: viewModel, location: location)
+                            }
+                        }
+                        .padding(12)
+                    }
+                    .frame(height: savedLocationsListHeight)
+                } else {
+                    Text(TeleportStrings.savedLocationsEmptyState)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(12)
+                        .frame(minHeight: 160, alignment: .topLeading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+        .frame(width: 300, alignment: .leading)
+        .background(MapWorkspaceOverlayCardBackground(shadowOpacity: 0.18, shadowRadius: 16, shadowYOffset: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.06))
+        )
+        .animation(.easeInOut(duration: 0.18), value: viewModel.savedLocations)
+    }
+
+    private var savedLocationsListHeight: CGFloat {
+        min(max(CGFloat(viewModel.savedLocations.count) * 92, 160), 300)
+    }
+}
+
+fileprivate struct SavedLocationRowView: View {
+    @Bindable var viewModel: AppViewModel
+    let location: SavedLocation
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Button {
+                viewModel.loadSavedLocation(location)
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(location.name)
+                        .font(.subheadline.weight(.medium))
+                        .lineLimit(1)
+
+                    Text(location.coordinate.formatted)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+
+                    Text(RouteInspectorFormatting.formattedSavedRouteAge(location.createdAt))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Menu {
+                Button(TeleportStrings.savedLocationRename) {
+                    viewModel.renameSavedLocation(location)
+                }
+
+                Button(TeleportStrings.copyCoordinatesHelp) {
+                    viewModel.copySavedLocationCoordinates(location)
+                }
+
+                Divider()
+
+                Button(TeleportStrings.savedLocationDelete, role: .destructive) {
+                    viewModel.deleteSavedLocation(location)
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 32, height: 32)
+                    .contentShape(Rectangle())
+            }
+            .menuStyle(.borderlessButton)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 2)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.primary.opacity(0.03))
+        )
     }
 }

@@ -34,7 +34,7 @@ Teleport is meant for developer testing and debugging. Using it for anything els
 
 - macOS
 - Xcode installed and opened at least once (so `xcrun`, `simctl`, and `devicectl` are on your path)
-- For physical devices: Developer Mode enabled on the iPhone, plus `python3` and `pymobiledevice3`
+- For physical devices: Developer Mode enabled on the iPhone, plus `python3` and `pymobiledevice3 >= 5.0`
 - For Wi-Fi: pair over USB first, then keep the device unlocked on the same network
 
 If macOS says developer tools are missing:
@@ -51,11 +51,13 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
 Then open Xcode once to let it finish setup.
 
-Install the Python dependency with whichever `python3` your shell resolves:
+Install or upgrade the Python dependency with whichever `python3` your shell resolves:
 
 ```sh
-python3 -m pip install pymobiledevice3
+python3 -m pip install --upgrade pymobiledevice3
 ```
+
+Teleport requires `pymobiledevice3` 5.0 or newer for physical-device simulation.
 
 ## Getting Started
 

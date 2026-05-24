@@ -12,30 +12,11 @@ actor USBDeviceLocationService: LocationSimulationService {
 
     func discoverDevices() async throws -> [Device] {
         TeleportLog.devices.info("Discovering physical devices from CoreDevice")
-        let devices = try loadCoreDeviceDevices()
+        let coreDevices = try loadCoreDeviceDevices()
 
         let discoveredDevices: [Device] =
-            devices
-            .filter { (device: CoreDeviceRecord) in
-                device.hardwareProperties.platform == "iOS" && device.hardwareProperties.reality == "physical"
-            }
-            .map { (device: CoreDeviceRecord) in
-                let kind = physicalDeviceKind(for: device)
-                let isAvailable = resolvedAvailability(for: device)
-                let details =
-                    isAvailable
-                    ? availableDetails(for: device, kind: kind)
-                    : unavailableDetails(for: kind)
-
-                return Device(
-                    id: device.hardwareProperties.udid,
-                    name: device.deviceProperties.name,
-                    kind: kind,
-                    osVersion: formattedOSVersion(for: device),
-                    isAvailable: isAvailable,
-                    details: details
-                )
-            }
+            coreDevices
+            .compactMap(makeDiscoveredDevice)
             .sorted { $0.name < $1.name }
 
         TeleportLog.devices.info("Discovered \(discoveredDevices.count) physical device(s)")
@@ -113,23 +94,59 @@ actor USBDeviceLocationService: LocationSimulationService {
 
         let data = try Data(contentsOf: outputURL)
         let response = try JSONDecoder().decode(CoreDeviceListResponse.self, from: data)
-        return response.result.devices
+        return response.result?.devices ?? []
+    }
+
+    private func makeDiscoveredDevice(from device: CoreDeviceRecord) -> Device? {
+        guard let hardwareProperties = device.hardwareProperties,
+            hardwareProperties.platform == "iOS",
+            hardwareProperties.reality == "physical"
+        else {
+            return nil
+        }
+
+        guard let udid = hardwareProperties.udid?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !udid.isEmpty
+        else {
+            TeleportLog.devices.warning(
+                "Skipping physical iOS CoreDevice record without a UDID: \(device.identifier ?? "<unknown>", privacy: .public)"
+            )
+            return nil
+        }
+
+        let kind = physicalDeviceKind(for: device)
+        let isAvailable = resolvedAvailability(for: device)
+        let details =
+            isAvailable
+            ? availableDetails(for: device, kind: kind)
+            : unavailableDetails(for: kind)
+
+        return Device(
+            id: udid,
+            name: resolvedDeviceName(for: device, fallbackID: udid),
+            kind: kind,
+            osVersion: formattedOSVersion(for: device),
+            isAvailable: isAvailable,
+            details: details
+        )
     }
 
     private func resolvedAvailability(for device: CoreDeviceRecord) -> Bool {
+        let pairingState = device.connectionProperties?.pairingState
+        let developerModeStatus = device.deviceProperties?.developerModeStatus
         let isAvailable =
-            device.connectionProperties.pairingState == "paired"
-            && device.deviceProperties.developerModeStatus == "enabled"
+            pairingState == "paired"
+            && developerModeStatus == "enabled"
 
         TeleportLog.devices.debug(
-            "Resolved physical-device availability for \(device.deviceProperties.name, privacy: .public); transport=\(device.connectionProperties.transportType ?? "<nil>", privacy: .public), tunnelState=\(device.connectionProperties.tunnelState ?? "<nil>", privacy: .public), pairing=\(device.connectionProperties.pairingState, privacy: .public), developer mode=\(device.deviceProperties.developerModeStatus, privacy: .public), ddiServices=\(device.deviceProperties.ddiServicesAvailable ?? false, privacy: .public), available=\(isAvailable, privacy: .public)"
+            "Resolved physical-device availability for \(self.resolvedDeviceName(for: device, fallbackID: "<unknown>"), privacy: .public); transport=\(device.connectionProperties?.transportType ?? "<nil>", privacy: .public), tunnelState=\(device.connectionProperties?.tunnelState ?? "<nil>", privacy: .public), pairing=\(pairingState ?? "<nil>", privacy: .public), developer mode=\(developerModeStatus ?? "<nil>", privacy: .public), ddiServices=\(device.deviceProperties?.ddiServicesAvailable ?? false, privacy: .public), available=\(isAvailable, privacy: .public)"
         )
 
         return isAvailable
     }
 
     private func physicalDeviceKind(for device: CoreDeviceRecord) -> DeviceKind {
-        switch device.connectionProperties.transportType?.lowercased() {
+        switch device.connectionProperties?.transportType?.lowercased() {
         case "localnetwork":
             return .physicalNetwork
         default:
@@ -160,9 +177,9 @@ actor USBDeviceLocationService: LocationSimulationService {
     }
 
     private func availableDetails(for device: CoreDeviceRecord, kind: DeviceKind) -> String {
-        let pairingState = device.connectionProperties.pairingState
-        let developerMode = device.deviceProperties.developerModeStatus
-        let tunnelState = device.connectionProperties.tunnelState
+        let pairingState = device.connectionProperties?.pairingState ?? "unknown"
+        let developerMode = device.deviceProperties?.developerModeStatus ?? "unknown"
+        let tunnelState = device.connectionProperties?.tunnelState
 
         if let tunnelState, kind == .physicalNetwork {
             return "\(transportLabel(for: kind)) · \(pairingState) · tunnel \(tunnelState) · dev mode \(developerMode)"
@@ -172,11 +189,34 @@ actor USBDeviceLocationService: LocationSimulationService {
     }
 
     private func formattedOSVersion(for device: CoreDeviceRecord) -> String {
-        if let build = device.deviceProperties.osBuildUpdate {
-            return "\(device.deviceProperties.osVersionNumber) (\(build))"
+        let version = device.deviceProperties?.osVersionNumber ?? "iOS"
+        if let build = device.deviceProperties?.osBuildUpdate {
+            return "\(version) (\(build))"
         }
 
-        return device.deviceProperties.osVersionNumber
+        return version
     }
 
+    private func resolvedDeviceName(for device: CoreDeviceRecord, fallbackID: String) -> String {
+        if let name = device.deviceProperties?.name?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !name.isEmpty
+        {
+            return name
+        }
+
+        if let marketingName = device.hardwareProperties?.marketingName?.trimmingCharacters(
+            in: .whitespacesAndNewlines),
+            !marketingName.isEmpty
+        {
+            return marketingName
+        }
+
+        if let deviceType = device.hardwareProperties?.deviceType?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !deviceType.isEmpty
+        {
+            return deviceType
+        }
+
+        return "iOS Device \(fallbackID.suffix(6))"
+    }
 }

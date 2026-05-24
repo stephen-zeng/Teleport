@@ -308,8 +308,8 @@ extension AppViewModel {
 
         if let guide = PythonDependencyInstallGuide.parse(from: message) {
             showsPythonDependencyGuide = guide
-            simulationState = .failed(.localized(TeleportStrings.missingPythonDependency))
-            statusMessage = .localized(TeleportStrings.installPythonDependency)
+            simulationState = .failed(.localized(TeleportStrings.pythonDependencyIssue))
+            statusMessage = .localized(TeleportStrings.fixPythonDependency)
             return
         }
 
